@@ -1,0 +1,47 @@
+name: Test QQ SMTP Email
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Send test email via QQ SMTP
+        env:
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          EMAIL_SUBSCRIBERS: ${{ secrets.EMAIL_SUBSCRIBERS }}
+        run: |
+          python -c "
+          import os, json, smtplib
+          from email.mime.text import MIMEText
+          from email.mime.multipart import MIMEMultipart
+
+          username = os.environ['SMTP_USERNAME']
+          password = os.environ['SMTP_PASSWORD']
+          subscribers = json.loads(os.environ['EMAIL_SUBSCRIBERS'])
+
+          print(f'Sender: {username}')
+          print(f'Subscribers: {subscribers}')
+
+          for addr in subscribers:
+              msg = MIMEMultipart()
+              msg['From'] = f'Quota Monitor <{username}>'
+              msg['To'] = addr
+              msg['Subject'] = '[quota-monitor] QQ SMTP 测试'
+              msg.attach(MIMEText('如果你收到这封邮件，说明 QQ SMTP 邮件通知已打通。\n\n当香港入境处放出新的预约配额时，你会自动收到通知。\n\n— quota-monitor', 'plain', 'utf-8'))
+
+              server = smtplib.SMTP('smtp.qq.com', 587, timeout=15)
+              server.starttls()
+              server.login(username, password)
+              server.sendmail(username, [addr], msg.as_string())
+              server.quit()
+              print(f'OK -> {addr}')
+          print('Done')
+          "
