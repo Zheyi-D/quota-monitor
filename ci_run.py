@@ -208,9 +208,6 @@ def main():
             "summary": "无变化"
         })
 
-    # ── 6. 发送欢迎邮件给新订阅者 ──
-    _send_welcome_emails()
-
     logger.info("CI Run 完成")
 
 
