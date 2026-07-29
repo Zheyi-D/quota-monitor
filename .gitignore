@@ -6,7 +6,6 @@ dist/
 build/
 
 # Runtime
-notify_state.json
 *.log
 *.log.*
 
