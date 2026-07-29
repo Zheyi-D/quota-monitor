@@ -328,6 +328,59 @@ th.today {
 .hidden { display: none; }
 
 /* ── Footer ── */
+.tutorial-box {
+  margin-top: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+.tutorial-title {
+  padding: 14px 18px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+.tutorial-title::-webkit-details-marker { display: none; }
+.tutorial-title::before { content: "📖 "; }
+.tutorial-content {
+  padding: 0 18px 16px;
+  font-size: 0.85rem;
+  line-height: 1.8;
+  color: var(--text);
+}
+.tutorial-content ol {
+  padding-left: 22px;
+  margin: 0;
+}
+.tutorial-content ol li {
+  margin-bottom: 6px;
+}
+.tutorial-content a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.tutorial-content a:hover {
+  text-decoration: underline;
+}
+.tutorial-source {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.tutorial-source a {
+  color: var(--accent);
+}
+
+/* ── Footer ── */
 footer {
   text-align: center;
   padding: 24px 0;
