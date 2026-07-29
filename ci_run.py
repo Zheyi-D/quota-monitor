@@ -234,6 +234,13 @@ def _send_welcome_emails():
     if not isinstance(welcomed, list):
         welcomed = []
 
+    # 如果 welcomed 为空但 subscribers 有数据，把现有订阅者全部标记为已欢迎（避免骚扰）
+    if not welcomed and all_subs:
+        welcomed = list(all_subs)
+        _save_json_encrypted(welcomed_file, welcomed)
+        logger.info("welcomed.json 已初始化，%d 位现有订阅者被标记为已欢迎", len(welcomed))
+        return
+
     # 找出新订阅者
     new_subs = [e for e in all_subs if e not in welcomed]
 
