@@ -128,10 +128,7 @@ def main():
 
     changes = detect_changes(old_snapshot, snapshot)
 
-    # ── 4. 保存新状态（暂不写文件，等通知完带上 hash 一起存）──
-    state_extra = state.get("_extra", {}) if state else {}
-
-    # ── 5. 发送通知 ──
+    # ── 4. 发送通知 ──
     notify_result = {"feishu": None, "email": 0, "welcome": 0}
     if is_first_run:
         logger.info("首次运行，基准快照已建立，不发送通知")
@@ -219,7 +216,7 @@ def main():
             "summary": "无变化"
         })
 
-    # ── 保存状态（含去重哈希）──
+    # ── 5. 保存状态（含去重哈希）──
     save_state("state.json", snapshot, state_extra)
 
     # ── 6. 一次性初始化 welcomed.json ──
