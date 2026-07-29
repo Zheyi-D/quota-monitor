@@ -5,6 +5,7 @@ import hashlib
 import json
 import logging
 import os
+import subprocess
 import sys
 from datetime import datetime
 
@@ -77,6 +78,52 @@ def _save_json_encrypted(path, data):
             json.dump(data, f, ensure_ascii=False)
 
 
+NOTIFY_MARKER = ".github/notify_marker"
+
+def _read_notify_marker():
+    """用 GitHub API 读取去重标记（绕过 git push SSL 问题）。"""
+    try:
+        result = subprocess.run(
+            ["gh", "api", f"repos/{os.environ.get('GITHUB_REPOSITORY','')}/contents/{NOTIFY_MARKER}"],
+            capture_output=True, text=True, timeout=15,
+        )
+        if result.returncode != 0:
+            return ""
+        data = json.loads(result.stdout)
+        import base64
+        return base64.b64decode(data["content"]).decode().strip()
+    except Exception:
+        return ""
+
+def _write_notify_marker(hash_val):
+    """用 GitHub API 写入去重标记。"""
+    import base64
+    try:
+        repo = os.environ.get("GITHUB_REPOSITORY", "")
+        api_url = f"repos/{repo}/contents/{NOTIFY_MARKER}"
+
+        # 先读已有 sha（如存在）
+        sha = None
+        try:
+            r = subprocess.run(["gh", "api", api_url], capture_output=True, text=True, timeout=10)
+            if r.returncode == 0:
+                sha = json.loads(r.stdout).get("sha")
+        except Exception:
+            pass
+
+        content_b64 = base64.b64encode(hash_val.encode()).decode()
+        body = json.dumps({"message": "update notify marker", "content": content_b64})
+        if sha:
+            body = json.dumps({"message": "update notify marker", "content": content_b64, "sha": sha})
+
+        subprocess.run(
+            ["gh", "api", "-X", "PUT", api_url, "--input", "-"],
+            input=body, capture_output=True, text=True, timeout=15,
+        )
+    except Exception:
+        pass  # 标记写入失败不影响通知发送
+
+
 def _hash_message(msg):
     """生成消息内容的 SHA256 指纹用于去重。"""
     return hashlib.sha256(msg.encode()).hexdigest()[:16]
@@ -114,19 +161,12 @@ def main():
     # ── 2. 导出 web 数据 ──
     export_web_data(snapshot, "data/quota.json")
 
-    # 记录最后更新时间（北京时间），保留已有的 notify_hash
+    # 记录最后更新时间（北京时间）
     import time as _time
-    existing_lu = {}
-    try:
-        with open("data/last_update.json") as f:
-            existing_lu = json.load(f)
-    except:
-        pass
     bj_ts = _time.time() + 8 * 3600
     bj_str = _time.strftime("%Y-%m-%d %H:%M:%S", _time.gmtime(bj_ts))
-    existing_lu["time"] = bj_str
     with open("data/last_update.json", "w") as f:
-        json.dump(existing_lu, f)
+        json.dump({"time": bj_str}, f)
 
     # ── 3. 加载上次状态，检测变化 ──
     state = load_state("state.json")
@@ -148,14 +188,8 @@ def main():
         message = format_changes(changes, DEFAULT_OFFICES)
         change_hash = _hash_message(message)
 
-        # 去重：读 last_update.json 里的 hash（这个文件 git push 比 state.json 可靠）
-        last_hash = ""
-        try:
-            with open("data/last_update.json") as f:
-                lu = json.load(f)
-                last_hash = lu.get("notify_hash", "")
-        except:
-            pass
+        # 去重：通过 GitHub API 读取上次通知的指纹
+        last_hash = _read_notify_marker()
 
         if change_hash == last_hash:
             logger.info("检测到配额变化但内容与上次相同，跳过通知")
@@ -167,7 +201,6 @@ def main():
         else:
             logger.info("检测到配额变化！")
             print(message)
-            pass  # hash 已在上方写入 data/last_update.json
 
             # Feishu 通知
             app_id = os.environ.get("FEISHU_APP_ID", "")
@@ -223,15 +256,8 @@ def main():
                 "summary": f"配额变化: new={len(changes.get('newly_available',[]))} added={len(changes.get('newly_added',[]))}"
             })
 
-            # 把去重 hash 存到 last_update.json（这个文件推送稳定）
-            try:
-                with open("data/last_update.json") as f:
-                    lu = json.load(f)
-                lu["notify_hash"] = change_hash
-                with open("data/last_update.json", "w") as f:
-                    json.dump(lu, f)
-            except:
-                pass
+            # 通过 GitHub API 写入去重标记（不依赖 git push）
+            _write_notify_marker(change_hash)
     else:
         logger.info("配额状态无变化")
         _append_notify_log({
