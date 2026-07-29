@@ -239,7 +239,8 @@ def format_changes(changes, offices=None):
     # 添加网页看板链接（部署后填入实际地址）
     lines.append("")
     lines.append("—" * 30)
-    lines.append("📊 查看实时看板：https://Zheyi-D.github.io/quota-monitor")
+    lines.append("📊 实时看板：https://Zheyi-D.github.io/quota-monitor")
+    lines.append("📋 预约办理：https://www.gov.hk/sc/apps/immdicbooking2.htm")
     lines.append("📱 加入飞书群：https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=ff3i6631-016b-40cc-989e-e4651ccd353c")
 
     return "\n".join(lines)

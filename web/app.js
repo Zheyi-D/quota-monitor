@@ -233,9 +233,16 @@ async function handleSubscribe() {
     const data = await resp.json();
 
     if (data.ok) {
-      showMsg(data.already_subscribed ? "已订阅过了！" : "订阅成功！", "success");
-      if (!data.already_subscribed) {
+      if (data.already_subscribed) {
+        showMsg("已订阅过了！", "success");
+      } else {
+        msg.innerHTML = '订阅成功！📊 <a href="https://Zheyi-D.github.io/quota-monitor" target="_blank">查看看板</a> · 📋 <a href="https://www.gov.hk/sc/apps/immdicbooking2.htm" target="_blank">预约办理</a>';
+        msg.className = "subscribe-msg success";
+        msg.classList.remove("hidden");
         input.value = "";
+        btn.disabled = false;
+        btn.textContent = "订阅";
+        return; // don't reset btn text again in finally
       }
     } else {
       showMsg(data.message || "订阅失败，请稍后重试", "error");

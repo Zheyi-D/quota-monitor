@@ -115,7 +115,67 @@ def main():
     else:
         logger.info("配额状态无变化")
 
+    # ── 6. 发送欢迎邮件给新订阅者 ──
+    _send_welcome_emails()
+
     logger.info("CI Run 完成")
+
+
+def _send_welcome_emails():
+    """检测新订阅者并发送欢迎邮件。"""
+    smtp_user = os.environ.get("SMTP_USERNAME", "")
+    smtp_pass = os.environ.get("SMTP_PASSWORD", "")
+    if not smtp_user or not smtp_pass:
+        return
+
+    subs_file = "data/subscribers.json"
+    welcomed_file = "data/welcomed.json"
+
+    # 读取所有订阅者
+    all_subs = []
+    if os.path.exists(subs_file):
+        try:
+            with open(subs_file) as f:
+                all_subs = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
+
+    # 读取已欢迎列表
+    welcomed = []
+    if os.path.exists(welcomed_file):
+        try:
+            with open(welcomed_file) as f:
+                welcomed = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
+
+    # 找出新订阅者
+    new_subs = [e for e in all_subs if e not in welcomed]
+
+    if not new_subs:
+        return
+
+    welcome_body = (
+        "你已成功订阅香港入境处预约配额监控！\n\n"
+        "当各人事登记办事处放出新的换领身份证预约名额时，\n"
+        "我们会第一时间通过邮件通知你。\n\n"
+        "📊 实时看板：https://Zheyi-D.github.io/quota-monitor\n"
+        "📋 预约办理：https://www.gov.hk/sc/apps/immdicbooking2.htm\n"
+        "📱 飞书群：https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=ff3i6631-016b-40cc-989e-e4651ccd353c\n\n"
+        "— quota-monitor"
+    )
+
+    for addr in new_subs:
+        if send_email_smtp(addr, "[quota-monitor] 订阅确认", welcome_body, smtp_user, smtp_pass):
+            welcomed.append(addr)
+            logger.info("欢迎邮件已发送: %s", addr)
+        else:
+            logger.warning("欢迎邮件发送失败: %s", addr)
+
+    # 保存已欢迎列表
+    if welcomed:
+        with open(welcomed_file, "w") as f:
+            json.dump(welcomed, f)
 
 
 if __name__ == "__main__":
