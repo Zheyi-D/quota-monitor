@@ -46,7 +46,6 @@ def main():
     export_web_data(snapshot, "data/quota.json")
 
     # 记录最后更新时间
-    from datetime import datetime
     with open("data/last_update.json", "w") as f:
         json.dump({"time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                    "iso": datetime.now().isoformat()}, f)
