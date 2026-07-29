@@ -45,6 +45,12 @@ def main():
     # ── 2. 导出 web 数据 ──
     export_web_data(snapshot, "data/quota.json")
 
+    # 记录最后更新时间
+    from datetime import datetime
+    with open("data/last_update.json", "w") as f:
+        json.dump({"time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                   "iso": datetime.now().isoformat()}, f)
+
     # ── 3. 加载上次状态，检测变化 ──
     state = load_state("state.json")
     old_snapshot = state.get("last_snapshot", {})

@@ -53,7 +53,7 @@ async function loadData() {
         quotaData = raw;
         allDates = extractDates(raw);
         document.getElementById("updateTime").textContent =
-          "更新時間：" + new Date().toLocaleString("zh-HK");
+          "更新時間：" + await loadUpdateTime();
         document.getElementById("loading").classList.add("hidden");
         return;
       }
@@ -64,6 +64,21 @@ async function loadData() {
 
   // All URLs failed — show demo/error state
   throw new Error("無法載入配額數據。請確保 data/quota.json 存在。");
+}
+
+async function loadUpdateTime() {
+  const urls = ["data/last_update.json", "../data/last_update.json", "./data/last_update.json"];
+  for (const url of urls) {
+    try {
+      const resp = await fetch(url, { cache: "no-cache" });
+      if (resp.ok) {
+        const d = await resp.json();
+        if (d.time) return d.time;
+      }
+    } catch {}
+  }
+  // fallback: page load time
+  return new Date().toLocaleString("zh-HK");
 }
 
 function extractDates(data) {
@@ -331,6 +346,8 @@ async function init() {
       await loadData();
       render();
     } catch (_) { /* silent on auto-refresh */ }
+    document.getElementById("updateTime").textContent =
+      "更新時間：" + await loadUpdateTime();
   }, 5 * 60 * 1000);
 }
 
