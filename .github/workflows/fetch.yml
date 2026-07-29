@@ -50,7 +50,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/ state.json
+          git add data/ state.json notify_log.json 2>/dev/null || true
           if ! git diff --staged --quiet; then
             git commit -m "🔄 Update quota data"
             git pull --rebase
@@ -68,6 +68,7 @@ jobs:
           cp -r web/* _site/
           cp data/quota.json _site/data/
           cp data/last_update.json _site/data/
+          if [ -f data/notify_log.json ]; then cp data/notify_log.json _site/data/; fi
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

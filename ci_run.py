@@ -29,6 +29,25 @@ logging.basicConfig(
 )
 logger = logging.getLogger("ci_run")
 
+NOTIFY_LOG = "data/notify_log.json"
+
+
+def _append_notify_log(entry):
+    """追加一条通知日志。"""
+    logs = []
+    if os.path.exists(NOTIFY_LOG):
+        try:
+            with open(NOTIFY_LOG) as f:
+                logs = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            logs = []
+    logs.append(entry)
+    # 只保留最近 500 条
+    if len(logs) > 500:
+        logs = logs[-500:]
+    with open(NOTIFY_LOG, "w") as f:
+        json.dump(logs, f, ensure_ascii=False, indent=2)
+
 
 def main():
     logger.info("CI Run — %s", datetime.now().isoformat())
@@ -63,8 +82,14 @@ def main():
     save_state("state.json", snapshot)
 
     # ── 5. 发送通知 ──
+    notify_result = {"feishu": None, "email": 0, "welcome": 0}
     if is_first_run:
         logger.info("首次运行，基准快照已建立，不发送通知")
+        _append_notify_log({
+            "time": datetime.now().isoformat(),
+            "event": "first_run",
+            "summary": "首次运行，基准快照已建立"
+        })
     elif has_significant_change(changes):
         message = format_changes(changes, DEFAULT_OFFICES)
         logger.info("检测到配额变化！")
@@ -78,11 +103,14 @@ def main():
 
         if app_id and app_secret and chat_id:
             ok = send_feishu_api(message, app_id, app_secret, chat_id)
-            logger.info("飞书通知 (API): %s", "OK" if ok else "FAIL")
+            notify_result["feishu"] = "OK" if ok else "FAIL"
+            logger.info("飞书通知 (API): %s", notify_result["feishu"])
         elif webhook_url:
             ok = send_feishu_webhook(webhook_url, message)
-            logger.info("飞书通知 (webhook): %s", "OK" if ok else "FAIL")
+            notify_result["feishu"] = "OK" if ok else "FAIL"
+            logger.info("飞书通知 (webhook): %s", notify_result["feishu"])
         else:
+            notify_result["feishu"] = "skipped"
             logger.info("未配置飞书通知，跳过")
 
         # Email via QQ SMTP
@@ -119,8 +147,19 @@ def main():
                     if send_email_smtp(addr, subject, email_body, smtp_user, smtp_pass):
                         sent_count += 1
                 logger.info("邮件通知: %d/%d 封发送成功", sent_count, len(subscribers))
+                notify_result["email"] = sent_count
             else:
                 logger.info("无邮件订阅者，跳过邮件通知")
+
+            # 写日志
+            _append_notify_log({
+                "time": datetime.now().isoformat(),
+                "event": "quota_change",
+                "changes": len(changes.get("newly_available", [])) + len(changes.get("newly_added", [])),
+                "feishu": notify_result["feishu"],
+                "email": notify_result["email"],
+                "summary": f"配额变化: new={len(changes.get('newly_available',[]))} added={len(changes.get('newly_added',[]))}"
+            })
     else:
         logger.info("配额状态无变化")
 
@@ -186,6 +225,15 @@ def _send_welcome_emails():
     if welcomed:
         with open(welcomed_file, "w") as f:
             json.dump(welcomed, f)
+
+    # 写日志
+    _append_notify_log({
+        "time": datetime.now().isoformat(),
+        "event": "welcome_email",
+        "sent": len(welcomed),
+        "total_new": len(new_subs),
+        "summary": f"欢迎邮件: {len(welcomed)}/{len(new_subs)}"
+    })
 
 
 if __name__ == "__main__":
