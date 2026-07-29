@@ -208,11 +208,32 @@ def main():
             "summary": "无变化"
         })
 
+    # ── 6. 一次性初始化 welcomed.json ──
+    _init_welcomed()
+
     logger.info("CI Run 完成")
 
 
+def _init_welcomed():
+    """一次性初始化 welcomed.json — 把现有订阅者全部标记为已欢迎。"""
+    subs_file = "data/subscribers.json"
+    welcomed_file = "data/welcomed.json"
+
+    all_subs = _load_json_encrypted(subs_file)
+    if not isinstance(all_subs, list):
+        all_subs = []
+
+    welcomed = _load_json_encrypted(welcomed_file)
+    if not isinstance(welcomed, list):
+        welcomed = []
+
+    if not welcomed and all_subs:
+        _save_json_encrypted(welcomed_file, list(all_subs))
+        logger.info("welcomed.json 已初始化，%d 位现有订阅者标记为已欢迎", len(all_subs))
+
+
 def _send_welcome_emails():
-    """检测新订阅者并发送欢迎邮件。"""
+    """检测新订阅者并发送欢迎邮件。（由 welcome.yml 调用）"""
     smtp_user = os.environ.get("SMTP_USERNAME", "")
     smtp_pass = os.environ.get("SMTP_PASSWORD", "")
     if not smtp_user or not smtp_pass:
@@ -230,13 +251,6 @@ def _send_welcome_emails():
     welcomed = _load_json_encrypted(welcomed_file)
     if not isinstance(welcomed, list):
         welcomed = []
-
-    # 如果 welcomed 为空但 subscribers 有数据，把现有订阅者全部标记为已欢迎（避免骚扰）
-    if not welcomed and all_subs:
-        welcomed = list(all_subs)
-        _save_json_encrypted(welcomed_file, welcomed)
-        logger.info("welcomed.json 已初始化，%d 位现有订阅者被标记为已欢迎", len(welcomed))
-        return
 
     # 找出新订阅者
     new_subs = [e for e in all_subs if e not in welcomed]
