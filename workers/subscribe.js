@@ -111,7 +111,7 @@ export default {
       try {
         const result = await modifySubscribers(env, "unsubscribe", email);
         if (result.notFound) {
-          return request.method === "POST" ? json({ok:true,msg:"not found"}) : html("<h2>📭 该邮箱不在订阅列表中</h2><p>可能已经退订过了。</p>");
+          return request.method === "POST" ? json({ok:false,msg:"not found"}) : html("<h2>📭 该邮箱不在订阅列表中</h2><p>可能已经退订过了。</p>");
         }
 
         // Also remove from welcomed.json
