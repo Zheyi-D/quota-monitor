@@ -145,7 +145,7 @@ def main():
         change_hash = _hash_message(message)
 
         # 去重：和上次通知的变化内容一样就跳过
-        state_extra = state.get("_extra", {})
+        state_extra = state.get("_extra", {}) if state else {}
         last_hash = state_extra.get("last_notify_hash", "")
         if change_hash == last_hash:
             logger.info("检测到配额变化但内容与上次相同，跳过通知")
@@ -159,57 +159,48 @@ def main():
             print(message)
             state_extra["last_notify_hash"] = change_hash
 
-        # Feishu — API 模式优先（自建应用）
-        app_id = os.environ.get("FEISHU_APP_ID", "")
-        app_secret = os.environ.get("FEISHU_APP_SECRET", "")
-        chat_id = os.environ.get("FEISHU_CHAT_ID", "")
-        webhook_url = os.environ.get("FEISHU_WEBHOOK_URL", "")
-
-        if app_id and app_secret and chat_id:
-            ok = send_feishu_api(message, app_id, app_secret, chat_id)
-            notify_result["feishu"] = "OK" if ok else "FAIL"
-            logger.info("飞书通知 (API): %s", notify_result["feishu"])
-        elif webhook_url:
-            ok = send_feishu_webhook(webhook_url, message)
-            notify_result["feishu"] = "OK" if ok else "FAIL"
-            logger.info("飞书通知 (webhook): %s", notify_result["feishu"])
-        else:
-            notify_result["feishu"] = "skipped"
-            logger.info("未配置飞书通知，跳过")
-
-        # Email via QQ SMTP
-        smtp_user = os.environ.get("SMTP_USERNAME", "")
-        smtp_pass = os.environ.get("SMTP_PASSWORD", "")
-        if smtp_user and smtp_pass:
-            # 合并 Secrets 订阅者 + 网页自助订阅者
-            subscribers = []
-            secret_subs = os.environ.get("EMAIL_SUBSCRIBERS", "")
-            if secret_subs:
-                try:
-                    subscribers.extend(json.loads(secret_subs))
-                except json.JSONDecodeError:
-                    logger.warning("EMAIL_SUBSCRIBERS JSON 解析失败")
-
-            # 读取网页自助订阅者
-            subs_file = "data/subscribers.json"
-            web_subs = _load_json_encrypted(subs_file)
-            if web_subs and isinstance(web_subs, list):
-                for addr in web_subs:
-                    if addr not in subscribers:
-                        subscribers.append(addr)
-
-            if subscribers:
-                subject = f"[配额监控] {datetime.now().strftime('%m/%d %H:%M')} 有变化"
-                sent_count = 0
-                for addr in subscribers:
-                    # 加上退订链接
-                    email_body = message + f"\n🔕 退订：https://quota-monitor.deng-zheyi.workers.dev/api/unsubscribe?email={addr}"
-                    if send_email_smtp(addr, subject, email_body, smtp_user, smtp_pass):
-                        sent_count += 1
-                logger.info("邮件通知: %d/%d 封发送成功", sent_count, len(subscribers))
-                notify_result["email"] = sent_count
+            # Feishu 通知
+            app_id = os.environ.get("FEISHU_APP_ID", "")
+            app_secret = os.environ.get("FEISHU_APP_SECRET", "")
+            chat_id = os.environ.get("FEISHU_CHAT_ID", "")
+            webhook_url = os.environ.get("FEISHU_WEBHOOK_URL", "")
+            if app_id and app_secret and chat_id:
+                ok = send_feishu_api(message, app_id, app_secret, chat_id)
+                notify_result["feishu"] = "OK" if ok else "FAIL"
+                logger.info("飞书通知: %s", notify_result["feishu"])
+            elif webhook_url:
+                ok = send_feishu_webhook(webhook_url, message)
+                notify_result["feishu"] = "OK" if ok else "FAIL"
+                logger.info("飞书通知: %s", notify_result["feishu"])
             else:
-                logger.info("无邮件订阅者，跳过邮件通知")
+                notify_result["feishu"] = "skipped"
+
+            # 邮件通知
+            smtp_user = os.environ.get("SMTP_USERNAME", "")
+            smtp_pass = os.environ.get("SMTP_PASSWORD", "")
+            if smtp_user and smtp_pass:
+                subscribers = []
+                secret_subs = os.environ.get("EMAIL_SUBSCRIBERS", "")
+                if secret_subs:
+                    try:
+                        subscribers.extend(json.loads(secret_subs))
+                    except json.JSONDecodeError:
+                        pass
+                subs_file = "data/subscribers.json"
+                web_subs = _load_json_encrypted(subs_file)
+                if web_subs and isinstance(web_subs, list):
+                    for addr in web_subs:
+                        if addr not in subscribers:
+                            subscribers.append(addr)
+                if subscribers:
+                    subject = f"[配额监控] {datetime.now().strftime('%m/%d %H:%M')} 有变化"
+                    sent_count = 0
+                    for addr in subscribers:
+                        email_body = message + f"\n🔕 退订：https://quota-monitor.deng-zheyi.workers.dev/api/unsubscribe?email={addr}"
+                        if send_email_smtp(addr, subject, email_body, smtp_user, smtp_pass):
+                            sent_count += 1
+                    logger.info("邮件通知: %d/%d", sent_count, len(subscribers))
+                    notify_result["email"] = sent_count
 
             # 写日志
             _append_notify_log({

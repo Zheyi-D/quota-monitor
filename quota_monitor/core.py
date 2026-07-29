@@ -222,16 +222,6 @@ def format_changes(changes, offices=None):
                 status_name = STATUS_NAMES.get(new_s, new_s)
                 lines.append(f"  • {date}  {office_name}({office})  {qtype_name} → {status_name}")
 
-    if changes.get("newly_full"):
-        has_any = True
-        lines.append("")
-        lines.append("🔴 **名额已满：**")
-        lines.append("")
-        for (date, office, qtype), old_s, new_s in changes["newly_full"]:
-            office_name = offices.get(office, office)
-            qtype_name = QUOTA_TYPES.get(qtype, qtype)
-            lines.append(f"  • {date}  {office_name}({office})  {qtype_name} 已满")
-
     if not has_any:
         lines.append("✅ 配额状态无变化")
         lines.append(f"  共监控 {len(DEFAULT_OFFICES)} 个办事处")
