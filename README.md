@@ -135,6 +135,83 @@ quota-monitor/
 
 ---
 
+## 🏗 技术架构
+
+### 数据流
+
+```
+cron-job.org (每5分钟 POST)
+       │
+       ▼
+GitHub API (repository_dispatch)
+       │
+       ▼
+GitHub Actions (ci_run.py)
+       │
+       ├──► requests → 入境处公开 API
+       │        GET /surgecontrolgate/ticket/getSituation?svcId=579
+       │
+       ├──► detect_changes() — 对比两次快照，检测 3 种变化：
+       │       ① 已满 → 有名额  (newly_available)
+       │       ② 新日期进入窗口  (newly_added)
+       │       ③ 有名额 → 已满    (newly_full)
+       │
+       ├──► 飞书群通知 — 自建应用 API (tenant_access_token + IM message)
+       ├──► 邮件通知 — QQ SMTP (smtplib, TLS 587)
+       └──► 导出 quota.json + 部署 GitHub Pages
+```
+
+### 前端
+
+| 组件 | 技术 | 说明 |
+|------|------|------|
+| 看板页面 | 纯 HTML/CSS/JS | 零框架、零依赖，GitHub Pages 托管 |
+| 数据加载 | Fetch API | 从 `data/quota.json` 读取，无后端 |
+| 配额表格 | 原生 DOM 渲染 | 96天 × 6 办事处全量渲染，CSS Grid 固定首列 |
+| 无极滚动 | `overflow-x: auto` | 触屏 + 鼠标滚轮自由拖动，自动滚到今天 |
+| 订阅/退订 | Fetch POST → Worker | 前端表单 → Cloudflare Worker → GitHub API |
+| 暗色模式 | `prefers-color-scheme` | CSS 变量自动适配，零 JS |
+| 更新时间 | `data/last_update.json` | 显示 CI 最后一次抓取的北京时间 |
+
+### 后端 (Python CI)
+
+| 模块 | 核心函数 | 说明 |
+|------|---------|------|
+| `core.py` | `fetch_snapshot()` | 拉取入境处 API，返回 `{(date, office, type): status}` 字典 |
+| `core.py` | `detect_changes()` | 等级值比较：quota-g=1, quota-y=2, quota-r=3, no-quota=4 |
+| `core.py` | `export_web_data()` | 导出 `data/quota.json` 供前端读取 |
+| `notify.py` | `send_feishu_api()` | 飞书 Open API：获取 token → POST 消息卡片到群聊 |
+| `notify.py` | `send_email_smtp()` | Python `smtplib` → QQ SMTP，TLS 加密发送 |
+| `notify.py` | `_can_send()` / `_record_sent()` | 频率控制：飞书 10 分钟、邮件 30 分钟最小间隔 |
+| `state.py` | `load_state()` / `save_state()` | 快照持久化，原子写入防损坏 |
+
+### 邮件系统
+
+- **发送方**：QQ 邮箱 SMTP（`smtp.qq.com:587`），使用授权码认证，非明文密码
+- **订阅管理**：用户于前端提交邮箱 → Cloudflare Worker 加密写入 `data/subscribers.json`
+- **欢迎邮件**：独立 workflow `welcome.yml`，检测新人 → 发确认邮件 → 标记 `welcomed.json`
+- **退订**：邮件底部的退订链接点击即退，Worker 同时清理 `subscribers.json` + `welcomed.json`
+- **隐私保护**：每封邮件末尾附带个性化退订链接，无需登录即可退订
+
+### 加密存储
+
+- **算法**：AES-256-GCM（Web Crypto API / Python `cryptography` 库）
+- **密钥**：32 字节随机 base64 密钥，分别存入 GitHub Secrets 和 Cloudflare Worker Variables
+- **加密范围**：`subscribers.json`、`welcomed.json`
+- **格式**：`{"enc": true, "data": "<base64(iv + ciphertext)>"}`
+- **向后兼容**：读取时自动识别明文/密文格式，切换加密无需数据迁移
+
+### 运行环境
+
+| 环境 | 用途 |
+|------|------|
+| GitHub Actions (Ubuntu) | 主 CI：配额检测 + 通知 + 数据导出 + Pages 部署 |
+| Cloudflare Workers | 订阅/退订 API：接收前端请求 → 调 GitHub API 读写文件 |
+| cron-job.org | 外部定时触发器，每 5 分钟 POST → `repository_dispatch` |
+| 本地 Python CLI | 开发者调试：`python monitor.py --once` |
+
+---
+
 ## 🔒 隐私与安全
 
 - 订阅者邮箱使用 **AES-256-GCM 加密存储**，仓库中不可读
