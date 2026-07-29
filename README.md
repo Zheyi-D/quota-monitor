@@ -148,6 +148,8 @@ quota-monitor/
 
 MIT © [Deng Zheyi](https://github.com/Zheyi-D)
 
+> ⚠️ **本项目为开源项目，仅供学习交流使用，请勿用于任何商业盈利目的。**
+
 ---
 
 ## 🙏 鸣谢

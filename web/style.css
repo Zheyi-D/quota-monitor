@@ -327,7 +327,43 @@ th.today {
 }
 .hidden { display: none; }
 
+/* ── Promo (JobHub) ── */
+.promo-box {
+  margin-top: 16px;
+  border: 1px dashed var(--accent);
+  border-radius: var(--radius);
+  background: var(--bg);
+  padding: 12px 18px;
+}
+.promo-content {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+}
+.promo-label {
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+.promo-title a {
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+}
+.promo-title a:hover { text-decoration: underline; }
+.promo-desc {
+  color: var(--text-secondary);
+}
+
 /* ── Footer ── */
+.footer-notice {
+  margin-top: 6px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-style: italic;
+}
 .tutorial-box {
   margin-top: 24px;
   border: 1px solid var(--border);

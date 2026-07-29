@@ -266,8 +266,9 @@ def _send_welcome_emails():
         "📋 预约办理：https://www.gov.hk/sc/apps/immdicbooking2.htm\n"
         "🪧 配额查询：https://eservices.es2.immd.gov.hk/es/quota-enquiry-client/?l=zh-CN&appId=579\n"
         "📱 飞书群：https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=ff3i6631-016b-40cc-989e-e4651ccd353c\n\n"
-        "⚠️ 免责声明：本系统为第三方工具，非香港入境事务处官方服务。\n"
-        "请以官网信息为准，本系统不对数据延迟或遗漏承担责任。\n\n"
+        "⚠️ 免责声明：本系统为第三方开源工具，非香港入境事务处官方服务。\n"
+        "请以官网信息为准，本系统不对数据延迟或遗漏承担责任。\n"
+        "本项目仅供学习交流，请勿用于商业盈利目的。\n\n"
         "— quota-monitor"
     )
 
