@@ -194,8 +194,10 @@ def format_changes(changes, offices=None):
         offices = DEFAULT_OFFICES
 
     lines = []
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    lines.append(f"📅 检测时间：{now}")
+    import time as _time
+    bj_ts = _time.time() + 8 * 3600
+    now = _time.strftime("%Y-%m-%d %H:%M:%S", _time.gmtime(bj_ts))
+    lines.append(f"📅 检测时间（北京时间）：{now}")
     lines.append("")
 
     has_any = False
