@@ -18,7 +18,7 @@
 
 直接访问看板页面，随时查看各办事处预约配额状态：
 
-> 🖥 **[quota-monitor 看板](https://dengzheyi.github.io/quota-monitor)**
+> 🖥 **[quota-monitor 看板](https://Zheyi-D.github.io/quota-monitor)**
 
 ### 📧 方式三：邮件通知
 
@@ -55,7 +55,7 @@
 ### 安装
 
 ```bash
-git clone https://github.com/dengzheyi/quota-monitor.git
+git clone https://github.com/Zheyi-D/quota-monitor.git
 cd quota-monitor
 pip install -e .
 ```
@@ -132,7 +132,7 @@ quota-monitor/
 
 ## 📄 License
 
-MIT © [Deng Zheyi](https://github.com/dengzheyi)
+MIT © [Deng Zheyi](https://github.com/Zheyi-D)
 
 ---
 

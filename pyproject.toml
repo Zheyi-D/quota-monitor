@@ -17,5 +17,5 @@ dependencies = [
 quota-monitor = "quota_monitor.monitor:main"
 
 [project.urls]
-Homepage = "https://github.com/dengzheyi/quota-monitor"
-Issues = "https://github.com/dengzheyi/quota-monitor/issues"
+Homepage = "https://github.com/Zheyi-D/quota-monitor"
+Issues = "https://github.com/Zheyi-D/quota-monitor/issues"

@@ -239,7 +239,7 @@ def format_changes(changes, offices=None):
     # 添加网页看板链接（部署后填入实际地址）
     lines.append("")
     lines.append("—" * 30)
-    lines.append("📊 查看实时看板：https://dengzheyi.github.io/quota-monitor")
+    lines.append("📊 查看实时看板：https://Zheyi-D.github.io/quota-monitor")
 
     return "\n".join(lines)
 
