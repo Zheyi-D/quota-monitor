@@ -241,7 +241,10 @@ def format_changes(changes, offices=None):
     lines.append("—" * 30)
     lines.append("📊 实时看板：https://Zheyi-D.github.io/quota-monitor")
     lines.append("📋 预约办理：https://www.gov.hk/sc/apps/immdicbooking2.htm")
+    lines.append("🪧 配额查询：https://eservices.es2.immd.gov.hk/es/quota-enquiry-client/?l=zh-CN&appId=579")
     lines.append("📱 加入飞书群：https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=ff3i6631-016b-40cc-989e-e4651ccd353c")
+    lines.append("")
+    lines.append("⚠️ 免责声明：本系统为第三方工具，非香港入境事务处官方服务。请以官网信息为准。")
 
     return "\n".join(lines)
 
