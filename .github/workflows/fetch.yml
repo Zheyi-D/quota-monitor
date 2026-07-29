@@ -33,7 +33,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install requests
+        run: pip install requests cryptography
 
       - name: Fetch quota & notify
         env:
@@ -43,6 +43,7 @@ jobs:
           SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           EMAIL_SUBSCRIBERS: ${{ secrets.EMAIL_SUBSCRIBERS }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
         run: python ci_run.py
 
       - name: Commit updated data

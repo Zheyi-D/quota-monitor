@@ -1,5 +1,5 @@
 /**
- * quota-monitor Worker v8 — 订阅 + 退订
+ * quota-monitor Worker v9 — 订阅 + 退订 + AES 加密存储
  */
 
 const CORS = {
@@ -22,48 +22,97 @@ async function fetchWithTimeout(url, opts, ms) {
   finally { clearTimeout(t); }
 }
 
-async function modifySubscribers(env, action, email) {
+// ── AES-GCM Encryption ──
+
+async function getKey(env) {
+  const raw = Uint8Array.from(atob(env.ENCRYPTION_KEY), c => c.charCodeAt(0));
+  return await crypto.subtle.importKey("raw", raw, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
+}
+
+async function encryptData(key, plaintext) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encoded = new TextEncoder().encode(plaintext);
+  const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded);
+  const combined = new Uint8Array(iv.length + ct.byteLength);
+  combined.set(iv);
+  combined.set(new Uint8Array(ct), iv.length);
+  return { enc: true, data: btoa(String.fromCharCode(...combined)) };
+}
+
+async function decryptData(key, data) {
+  if (!data || !data.enc) return data;  // plain JSON (backward compat)
+  const akey = key;
+  const buf = new Uint8Array(atob(data.data).split("").map(c => c.charCodeAt(0)));
+  const iv = buf.slice(0, 12);
+  const ct = buf.slice(12);
+  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, akey, ct);
+  return JSON.parse(new TextDecoder().decode(decrypted));
+}
+
+// ── GitHub Helpers ──
+
+async function readJSON(env, path) {
   const headers = {
     Authorization: `Bearer ${env.GITHUB_TOKEN}`,
     "User-Agent": "quota",
     Accept: "application/vnd.github.v3+json",
   };
-  const ghUrl = `https://api.github.com/repos/${env.GITHUB_REPO}/contents/data/subscribers.json`;
+  const url = `https://api.github.com/repos/${env.GITHUB_REPO}/contents/${path}`;
 
-  const r1 = await fetchWithTimeout(ghUrl, { headers }, 10000);
+  const resp = await fetchWithTimeout(url, { headers }, 10000);
+  if (resp.status === 404) return { raw: null, sha: null };
+  if (!resp.ok) throw new Error(`read ${path}: ${resp.status}`);
 
-  let emails = [], sha = null;
-  if (r1.status === 200) {
-    const d = await r1.json();
-    try { emails = JSON.parse(atob(d.content)); } catch { emails = []; }
-    if (!Array.isArray(emails)) emails = [];
-    sha = d.sha;
-  } else if (r1.status !== 404) {
-    throw new Error(`read failed: ${r1.status}`);
+  const d = await resp.json();
+  let decoded;
+  try {
+    const wrapper = JSON.parse(atob(d.content));
+    // 如果是加密数据，解密
+    if (wrapper.enc && env.ENCRYPTION_KEY) {
+      const key = await getKey(env);
+      decoded = await decryptData(key, wrapper);
+    } else {
+      decoded = wrapper;
+    }
+  } catch {
+    // 旧格式明文
+    try { decoded = JSON.parse(atob(d.content)); } catch { decoded = []; }
   }
+  return { raw: decoded, sha: d.sha };
+}
 
-  if (action === "subscribe") {
-    if (emails.includes(email)) return { added: false, total: emails.length, emails };
-    emails.push(email);
+async function writeJSON(env, path, data, sha, commitMsg) {
+  const headers = {
+    Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+    "User-Agent": "quota",
+    Accept: "application/vnd.github.v3+json",
+    "Content-Type": "application/json",
+  };
+  const url = `https://api.github.com/repos/${env.GITHUB_REPO}/contents/${path}`;
+
+  // 加密
+  let contentObj;
+  if (env.ENCRYPTION_KEY) {
+    const key = await getKey(env);
+    contentObj = await encryptData(key, JSON.stringify(data));
   } else {
-    const before = emails.length;
-    emails = emails.filter(e => e !== email);
-    if (emails.length === before) return { added: false, total: emails.length, emails, notFound: true };
+    contentObj = data;
   }
+  const content = btoa(JSON.stringify(contentObj, null, 2) + "\n");
 
-  const content = btoa(JSON.stringify(emails, null, 2) + "\n");
-  const body = { message: action === "subscribe" ? "Subscribe: new subscriber" : "Unsubscribe", content };
+  const body = { message: commitMsg, content };
   if (sha) body.sha = sha;
 
-  const r2 = await fetchWithTimeout(ghUrl, {
+  const resp = await fetchWithTimeout(url, {
     method: "PUT",
-    headers: { ...headers, "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(body),
   }, 10000);
 
-  if (!r2.ok) throw new Error(`write failed: ${r2.status}`);
-  return { added: action === "subscribe", total: emails.length, emails };
+  if (!resp.ok) throw new Error(`write ${path}: ${resp.status}`);
 }
+
+// ── Main Handler ──
 
 export default {
   async fetch(request, env) {
@@ -73,12 +122,11 @@ export default {
       return new Response(null, { status: 204, headers: CORS });
     }
 
-    // ── Health ──
     if (url.pathname === "/" || url.pathname === "/health") {
       return json({ ok: true });
     }
 
-    // ── Subscribe (POST from web page) ──
+    // ── Subscribe (POST) ──
     if (request.method === "POST" && url.pathname === "/api/subscribe") {
       let body;
       try { body = await request.json(); } catch { return json({ok:false,msg:"bad json"},400); }
@@ -86,17 +134,19 @@ export default {
       if (!isValidEmail(email)) return json({ok:false,msg:"bad email"},400);
 
       try {
-        const result = await modifySubscribers(env, "subscribe", email);
-        if (!result.added) return json({ ok: true, msg: "already" });
-        return json({ ok: true, msg: "subscribed", total: result.total });
+        const { raw: emails, sha } = await readJSON(env, "data/subscribers.json");
+        const list = Array.isArray(emails) ? emails : [];
+        if (list.includes(email)) return json({ ok: true, msg: "already" });
+        list.push(email);
+        await writeJSON(env, "data/subscribers.json", list, sha, "Subscribe: new subscriber");
+        return json({ ok: true, msg: "subscribed", total: list.length });
       } catch (err) {
         return json({ ok: false, msg: err.message }, 500);
       }
     }
 
-    // ── Unsubscribe (GET from email link or POST from web page) ──
+    // ── Unsubscribe ──
     if (url.pathname === "/api/unsubscribe") {
-      // Support both GET (email link) and POST (web page)
       let email;
       if (request.method === "POST") {
         try { const b = await request.json(); email = b.email; } catch { email = ""; }
@@ -109,38 +159,28 @@ export default {
       }
 
       try {
-        const result = await modifySubscribers(env, "unsubscribe", email);
-        if (result.notFound) {
-          return request.method === "POST" ? json({ok:false,msg:"not found"}) : html("<h2>📭 该邮箱不在订阅列表中</h2><p>可能已经退订过了。</p>");
+        const { raw: emails, sha } = await readJSON(env, "data/subscribers.json");
+        const list = Array.isArray(emails) ? emails : [];
+        const before = list.length;
+        const filtered = list.filter(e => e !== email);
+        if (filtered.length === before) {
+          return request.method === "POST" ? json({ok:false,msg:"not found"}) : html("<h2>📭 该邮箱不在订阅列表中</h2>");
         }
+        await writeJSON(env, "data/subscribers.json", filtered, sha, "Unsubscribe");
 
-        // Also remove from welcomed.json
+        // Also clean welcomed.json
         try {
-          const whUrl = `https://api.github.com/repos/${env.GITHUB_REPO}/contents/data/welcomed.json`;
-          const whHeaders = {
-            Authorization: `Bearer ${env.GITHUB_TOKEN}`,
-            "User-Agent": "quota",
-            Accept: "application/vnd.github.v3+json",
-          };
-          const wr = await fetchWithTimeout(whUrl, { headers: whHeaders }, 10000);
-          if (wr.status === 200) {
-            const wd = await wr.json();
-            let welcomed = JSON.parse(atob(wd.content));
-            if (Array.isArray(welcomed)) {
-              welcomed = welcomed.filter(e => e !== email);
-              const wContent = btoa(JSON.stringify(welcomed, null, 2) + "\n");
-              await fetchWithTimeout(whUrl, {
-                method: "PUT",
-                headers: { ...whHeaders, "Content-Type": "application/json" },
-                body: JSON.stringify({ message: "Unsubscribe", content: wContent, sha: wd.sha }),
-              }, 10000);
-            }
+          const { raw: w, sha: ws } = await readJSON(env, "data/welcomed.json");
+          const wList = Array.isArray(w) ? w : [];
+          const wFiltered = wList.filter(e => e !== email);
+          if (wFiltered.length !== wList.length) {
+            await writeJSON(env, "data/welcomed.json", wFiltered, ws, "Unsubscribe (clean welcomed)");
           }
-        } catch { /* welcomed.json cleanup is best-effort */ }
+        } catch { /* best-effort */ }
 
-        return request.method === "POST" ? json({ok:true,msg:"unsubscribed"}) : html("<h2>✅ 退订成功</h2><p>你已取消订阅，不会再收到配额通知邮件。</p>");
+        return request.method === "POST" ? json({ok:true,msg:"unsubscribed"}) : html("<h2>✅ 退订成功</h2>");
       } catch (err) {
-        return request.method === "POST" ? json({ok:false,msg:err.message},500) : html("<h2>❌ 退订失败</h2><p>服务器错误，请稍后重试。</p>");
+        return request.method === "POST" ? json({ok:false,msg:err.message},500) : html("<h2>❌ 退订失败</h2>");
       }
     }
 

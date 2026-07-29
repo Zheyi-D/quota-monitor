@@ -32,6 +32,50 @@ logger = logging.getLogger("ci_run")
 NOTIFY_LOG = "data/notify_log.json"
 
 
+def _load_json_encrypted(path):
+    """读取 JSON 文件，支持加密格式和明文格式（向后兼容）。"""
+    if not os.path.exists(path):
+        return None
+
+    with open(path) as f:
+        data = json.load(f)
+
+    if data and isinstance(data, dict) and data.get("enc"):
+        # 加密格式
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+        import base64
+        key = base64.b64decode(os.environ.get("ENCRYPTION_KEY", ""))
+        if not key:
+            logger.warning("ENCRYPTION_KEY 未配置，无法解密 %s", path)
+            return None
+        aes = AESGCM(key)
+        raw = base64.b64decode(data["data"])
+        iv, ct = raw[:12], raw[12:]
+        return json.loads(aes.decrypt(iv, ct, None))
+
+    # 明文格式（向后兼容）
+    return data
+
+
+def _save_json_encrypted(path, data):
+    """加密保存 JSON 文件。"""
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    import base64
+    key = base64.b64decode(os.environ.get("ENCRYPTION_KEY", ""))
+    if key:
+        aes = AESGCM(key)
+        iv = os.urandom(12)
+        plaintext = json.dumps(data, ensure_ascii=False).encode()
+        ct = aes.encrypt(iv, plaintext, None)
+        raw = iv + ct
+        with open(path, "w") as f:
+            json.dump({"enc": True, "data": base64.b64encode(raw).decode()}, f)
+    else:
+        # 无密钥时明文存储（向后兼容）
+        with open(path, "w") as f:
+            json.dump(data, f, ensure_ascii=False)
+
+
 def _append_notify_log(entry):
     """追加一条通知日志。"""
     logs = []
@@ -128,15 +172,11 @@ def main():
 
             # 读取网页自助订阅者
             subs_file = "data/subscribers.json"
-            if os.path.exists(subs_file):
-                try:
-                    with open(subs_file) as f:
-                        web_subs = json.load(f)
-                        for addr in web_subs:
-                            if addr not in subscribers:
-                                subscribers.append(addr)
-                except (json.JSONDecodeError, IOError):
-                    logger.warning("subscribers.json 读取失败")
+            web_subs = _load_json_encrypted(subs_file)
+            if web_subs and isinstance(web_subs, list):
+                for addr in web_subs:
+                    if addr not in subscribers:
+                        subscribers.append(addr)
 
             if subscribers:
                 subject = f"[配额监控] {datetime.now().strftime('%m/%d %H:%M')} 有变化"
@@ -185,22 +225,14 @@ def _send_welcome_emails():
     welcomed_file = "data/welcomed.json"
 
     # 读取所有订阅者
-    all_subs = []
-    if os.path.exists(subs_file):
-        try:
-            with open(subs_file) as f:
-                all_subs = json.load(f)
-        except (json.JSONDecodeError, IOError):
-            pass
+    all_subs = _load_json_encrypted(subs_file)
+    if not isinstance(all_subs, list):
+        all_subs = []
 
     # 读取已欢迎列表
-    welcomed = []
-    if os.path.exists(welcomed_file):
-        try:
-            with open(welcomed_file) as f:
-                welcomed = json.load(f)
-        except (json.JSONDecodeError, IOError):
-            pass
+    welcomed = _load_json_encrypted(welcomed_file)
+    if not isinstance(welcomed, list):
+        welcomed = []
 
     # 找出新订阅者
     new_subs = [e for e in all_subs if e not in welcomed]
@@ -228,8 +260,7 @@ def _send_welcome_emails():
 
     # 保存已欢迎列表
     if welcomed:
-        with open(welcomed_file, "w") as f:
-            json.dump(welcomed, f)
+        _save_json_encrypted(welcomed_file, welcomed)
 
     # 写日志
     _append_notify_log({
