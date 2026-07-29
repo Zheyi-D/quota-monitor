@@ -114,12 +114,19 @@ def main():
     # ── 2. 导出 web 数据 ──
     export_web_data(snapshot, "data/quota.json")
 
-    # 记录最后更新时间（北京时间）
+    # 记录最后更新时间（北京时间），保留已有的 notify_hash
     import time as _time
+    existing_lu = {}
+    try:
+        with open("data/last_update.json") as f:
+            existing_lu = json.load(f)
+    except:
+        pass
     bj_ts = _time.time() + 8 * 3600
     bj_str = _time.strftime("%Y-%m-%d %H:%M:%S", _time.gmtime(bj_ts))
+    existing_lu["time"] = bj_str
     with open("data/last_update.json", "w") as f:
-        json.dump({"time": bj_str}, f)
+        json.dump(existing_lu, f)
 
     # ── 3. 加载上次状态，检测变化 ──
     state = load_state("state.json")
