@@ -25,7 +25,9 @@ jobs:
 
       - name: Fetch quota & notify
         env:
-          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_CHAT_ID: ${{ secrets.FEISHU_CHAT_ID }}
           EMAIL_SUBSCRIBERS: ${{ secrets.EMAIL_SUBSCRIBERS }}
         run: python ci_run.py
 

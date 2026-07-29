@@ -18,7 +18,7 @@ from quota_monitor.core import (
     format_changes,
     has_significant_change,
 )
-from quota_monitor.notify import send_feishu_webhook
+from quota_monitor.notify import send_feishu_api, send_feishu_webhook
 from quota_monitor.state import load_state, save_state
 
 logging.basicConfig(
@@ -63,13 +63,20 @@ def main():
         logger.info("检测到配额变化！")
         print(message)
 
-        # Feishu webhook
+        # Feishu — API 模式优先（自建应用）
+        app_id = os.environ.get("FEISHU_APP_ID", "")
+        app_secret = os.environ.get("FEISHU_APP_SECRET", "")
+        chat_id = os.environ.get("FEISHU_CHAT_ID", "")
         webhook_url = os.environ.get("FEISHU_WEBHOOK_URL", "")
-        if webhook_url:
+
+        if app_id and app_secret and chat_id:
+            ok = send_feishu_api(message, app_id, app_secret, chat_id)
+            logger.info("飞书通知 (API): %s", "OK" if ok else "FAIL")
+        elif webhook_url:
             ok = send_feishu_webhook(webhook_url, message)
-            logger.info("飞书通知: %s", "OK" if ok else "FAIL")
+            logger.info("飞书通知 (webhook): %s", "OK" if ok else "FAIL")
         else:
-            logger.info("未配置 FEISHU_WEBHOOK_URL，跳过飞书通知")
+            logger.info("未配置飞书通知，跳过")
 
         # Email (optional)
         email_subscribers = os.environ.get("EMAIL_SUBSCRIBERS", "")
