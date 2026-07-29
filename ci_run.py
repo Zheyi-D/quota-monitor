@@ -167,7 +167,7 @@ def main():
         else:
             logger.info("检测到配额变化！")
             print(message)
-            state_extra["last_notify_hash"] = change_hash
+            pass  # hash 已在上方写入 data/last_update.json
 
             # Feishu 通知
             app_id = os.environ.get("FEISHU_APP_ID", "")
