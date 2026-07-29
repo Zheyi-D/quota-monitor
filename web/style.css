@@ -101,6 +101,30 @@ header h1 {
 .legend .dot.red    { background: var(--red); }
 .legend .dot.gray   { background: var(--gray); }
 
+/* ── Header Links ── */
+.header-links {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.btn-link {
+  display: inline-block;
+  padding: 8px 18px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+.btn-link:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
 /* ── Subscribe ── */
 .subscribe-box {
   background: var(--bg-secondary);
