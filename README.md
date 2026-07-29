@@ -149,7 +149,6 @@ GitHub API (repository_dispatch)
 GitHub Actions (ci_run.py)
        │
        ├──► requests → 入境处公开 API
-       │        GET /surgecontrolgate/ticket/getSituation?svcId=579
        │
        ├──► detect_changes() — 对比两次快照，检测 3 种变化：
        │       ① 已满 → 有名额  (newly_available)
