@@ -230,7 +230,7 @@ def send_email_smtp(to, subject, body, username=None, password=None):
         server.login(username, password)
         server.sendmail(username, [to], msg.as_string())
         server.quit()
-        logger.info("QQ SMTP 邮件发送成功: %s", to)
+        logger.info("QQ SMTP 邮件发送成功")
         return True
     except smtplib.SMTPAuthenticationError:
         logger.error("QQ SMTP 认证失败，请检查邮箱地址和授权码")
@@ -301,7 +301,7 @@ def send_email_agently(to, subject, body):
         return False
 
     ok = result2.returncode == 0
-    logger.info("agently-cli 邮件: %s -> %s", "OK" if ok else "FAIL", to)
+    logger.info("agently-cli 邮件: %s", "OK" if ok else "FAIL")
     return ok
 
 

@@ -168,9 +168,9 @@ def _send_welcome_emails():
     for addr in new_subs:
         if send_email_smtp(addr, "[quota-monitor] 订阅确认", welcome_body, smtp_user, smtp_pass):
             welcomed.append(addr)
-            logger.info("欢迎邮件已发送: %s", addr)
+            logger.info("欢迎邮件已发送 (第%d封)", len(welcomed))
         else:
-            logger.warning("欢迎邮件发送失败: %s", addr)
+            logger.warning("欢迎邮件发送失败 (第%d封)", len(welcomed) + 1)
 
     # 保存已欢迎列表
     if welcomed:

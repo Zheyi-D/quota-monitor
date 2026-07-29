@@ -64,7 +64,7 @@ export default {
       const r2 = await fetch(apiUrl, {
         method: "PUT",
         headers: {...headers, "Content-Type":"application/json"},
-        body: JSON.stringify({message:`Subscribe: ${email}`,content,...(sha?{sha}:{})}),
+        body: JSON.stringify({message:"Subscribe: new subscriber",content,...(sha?{sha}:{})}),
       });
 
       if (r2.ok) {
