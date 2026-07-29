@@ -150,10 +150,11 @@ GitHub Actions (ci_run.py)
        │
        ├──► requests → 入境处公开 API
        │
-       ├──► detect_changes() — 对比两次快照，检测 3 种变化：
+       ├──► detect_changes() — 对比两次快照，检测 2 种变化：
        │       ① 已满 → 有名额  (newly_available)
        │       ② 新日期进入窗口  (newly_added)
-       │       ③ 有名额 → 已满    (newly_full)
+       │
+       ├──► SHA256 去重检查 — 比对 .github/notify_marker，相同内容不重复发送
        │
        ├──► 飞书群通知 — 自建应用 API (tenant_access_token + IM message)
        ├──► 邮件通知 — QQ SMTP (smtplib, TLS 587)
@@ -183,6 +184,7 @@ GitHub Actions (ci_run.py)
 | `notify.py` | `send_email_smtp()` | Python `smtplib` → QQ SMTP，TLS 加密发送 |
 | `notify.py` | `_can_send()` / `_record_sent()` | 频率控制：飞书 10 分钟、邮件 30 分钟最小间隔 |
 | `state.py` | `load_state()` / `save_state()` | 快照持久化，原子写入防损坏 |
+| `ci_run.py` | `_read_notify_marker()` / `_write_notify_marker()` | SHA256 去重标记，通过 GitHub API 读写，避开 git push 不可靠问题 |
 
 ### 邮件系统
 
@@ -199,6 +201,26 @@ GitHub Actions (ci_run.py)
 - **加密范围**：`subscribers.json`、`welcomed.json`
 - **格式**：`{"enc": true, "data": "<base64(iv + ciphertext)>"}`
 - **向后兼容**：读取时自动识别明文/密文格式，切换加密无需数据迁移
+
+### 去重机制
+
+为避免同一变化被重复发送多次，系统使用 **SHA256 内容指纹 + GitHub API 标记文件** 实现去重：
+
+```
+检测到配额变化 → 提取变化数据本体 → SHA256("变化内容") → 得到 16 位指纹
+                                                          │
+                              比对 .github/notify_marker ─┤
+                                                          │
+                                相同                       不同
+                                 ↓                         ↓
+                            跳过通知                   发送通知
+                                                    写入新指纹到 notify_marker
+```
+
+**关键设计**：
+- **指纹基于变化数据本身**（`newly_available` + `newly_added` 的 JSON），而非完整通知消息，避免时间戳导致每次 hash 不同
+- **使用 GitHub REST API 读写标记**（`GET/PUT repos/:owner/:repo/contents/.github/notify_marker`），不依赖 `git push`，彻底避开 SSL 连接不稳定导致的推送失败
+- 标记文件存储在 `.github/` 目录下，内容为单行 16 位 hex 指纹
 
 ### 运行环境
 
