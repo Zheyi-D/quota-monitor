@@ -81,18 +81,37 @@ def main():
         # Email via QQ SMTP
         smtp_user = os.environ.get("SMTP_USERNAME", "")
         smtp_pass = os.environ.get("SMTP_PASSWORD", "")
-        email_subscribers = os.environ.get("EMAIL_SUBSCRIBERS", "")
-        if smtp_user and smtp_pass and email_subscribers:
-            try:
-                subscribers = json.loads(email_subscribers)
+        if smtp_user and smtp_pass:
+            # 合并 Secrets 订阅者 + 网页自助订阅者
+            subscribers = []
+            secret_subs = os.environ.get("EMAIL_SUBSCRIBERS", "")
+            if secret_subs:
+                try:
+                    subscribers.extend(json.loads(secret_subs))
+                except json.JSONDecodeError:
+                    logger.warning("EMAIL_SUBSCRIBERS JSON 解析失败")
+
+            # 读取网页自助订阅者
+            subs_file = "data/subscribers.json"
+            if os.path.exists(subs_file):
+                try:
+                    with open(subs_file) as f:
+                        web_subs = json.load(f)
+                        for addr in web_subs:
+                            if addr not in subscribers:
+                                subscribers.append(addr)
+                except (json.JSONDecodeError, IOError):
+                    logger.warning("subscribers.json 读取失败")
+
+            if subscribers:
                 subject = f"[配额监控] {datetime.now().strftime('%m/%d %H:%M')} 有变化"
                 sent_count = 0
                 for addr in subscribers:
                     if send_email_smtp(addr, subject, message, smtp_user, smtp_pass):
                         sent_count += 1
                 logger.info("邮件通知: %d/%d 封发送成功", sent_count, len(subscribers))
-            except json.JSONDecodeError:
-                logger.warning("EMAIL_SUBSCRIBERS JSON 解析失败")
+            else:
+                logger.info("无邮件订阅者，跳过邮件通知")
     else:
         logger.info("配额状态无变化")
 

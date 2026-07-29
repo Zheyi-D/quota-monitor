@@ -101,6 +101,60 @@ header h1 {
 .legend .dot.red    { background: var(--red); }
 .legend .dot.gray   { background: var(--gray); }
 
+/* ── Subscribe ── */
+.subscribe-box {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-top: 8px;
+}
+.subscribe-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.subscribe-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.subscribe-input {
+  flex: 1;
+  min-width: 200px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-family: var(--font);
+}
+.subscribe-input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+.btn-subscribe {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.btn-subscribe:hover:not(:disabled) {
+  opacity: 0.9;
+}
+.btn-subscribe:disabled {
+  opacity: 0.5;
+}
+.subscribe-msg {
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+.subscribe-msg.success { color: var(--green); }
+.subscribe-msg.warning { color: var(--yellow); }
+.subscribe-msg.error { color: var(--red); }
+
 /* ── Toolbar ── */
 .toolbar {
   display: flex;

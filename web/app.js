@@ -29,6 +29,9 @@ const QUOTA_CLASSES = {
 const DAYS_PER_PAGE = 14;
 const DAY_NAMES = ["日", "一", "二", "三", "四", "五", "六"];
 
+// Cloudflare Worker 地址（部署后替换为实际 URL）
+const SUBSCRIBE_URL = "https://quota-monitor.YOUR_SUBDOMAIN.workers.dev/api/subscribe";
+
 let quotaData = null;       // { "MM/DD/YYYY|OFFICE|R": "quota-g", ... }
 let allDates = [];           // sorted unique dates
 let currentPageStart = 0;
@@ -190,6 +193,61 @@ function getDayOfWeek(dateStr) {
   return new Date(y, m - 1, d).getDay();
 }
 
+// ─── Subscribe ────────────────────────────────────────────────
+
+async function handleSubscribe() {
+  const input = document.getElementById("subscribeEmail");
+  const btn = document.getElementById("subscribeBtn");
+  const msg = document.getElementById("subscribeMsg");
+  const email = input.value.trim();
+
+  // show/hide helper
+  function showMsg(text, cls) {
+    msg.textContent = text;
+    msg.className = "subscribe-msg " + cls;
+    msg.classList.remove("hidden");
+  }
+  function hideMsg() {
+    msg.classList.add("hidden");
+  }
+
+  if (!email) {
+    showMsg("请输入邮箱", "warning");
+    return;
+  }
+  if (!/^[^\s@]{1,100}@[^\s@]{1,100}\.[^\s@]{2,20}$/.test(email)) {
+    showMsg("邮箱格式不正确", "warning");
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "提交中...";
+  hideMsg();
+
+  try {
+    const resp = await fetch(SUBSCRIBE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const data = await resp.json();
+
+    if (data.ok) {
+      showMsg(data.already_subscribed ? "已订阅过了！" : "订阅成功！", "success");
+      if (!data.already_subscribed) {
+        input.value = "";
+      }
+    } else {
+      showMsg(data.message || "订阅失败，请稍后重试", "error");
+    }
+  } catch {
+    showMsg("网络错误，请稍后重试", "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "订阅";
+  }
+}
+
 // ─── Init ─────────────────────────────────────────────────────
 
 async function init() {
@@ -207,6 +265,10 @@ async function init() {
   document.getElementById("btnToday").addEventListener("click", goToToday);
   document.getElementById("btnPrev").addEventListener("click", goPrev);
   document.getElementById("btnNext").addEventListener("click", goNext);
+  document.getElementById("subscribeBtn").addEventListener("click", handleSubscribe);
+  document.getElementById("subscribeEmail").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") handleSubscribe();
+  });
 
   // Keyboard navigation
   document.addEventListener("keydown", (e) => {
