@@ -1,4 +1,5 @@
 name: Fetch Quota & Notify
+# 每 5 分钟自动抓取配额并通知
 
 on:
   schedule:
