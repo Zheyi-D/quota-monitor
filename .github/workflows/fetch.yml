@@ -20,6 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pages: write
+      id-token: write
 
     steps:
       - name: Checkout
@@ -54,3 +56,20 @@ jobs:
           else
             echo "No changes to commit"
           fi
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Prepare Pages site
+        run: |
+          mkdir -p _site/data
+          cp -r web/* _site/
+          cp data/quota.json _site/data/
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
