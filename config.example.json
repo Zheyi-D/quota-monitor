@@ -21,10 +21,15 @@
   "notifications": {
     "feishu": {
       "enabled": true,
-      "webhook_url": "https://open.feishu.cn/open-apis/bot/v2/hook/YOUR_WEBHOOK_TOKEN"
+      "app_id": "cli_xxxxxxxxxxxxx",
+      "app_secret": "YOUR_APP_SECRET",
+      "chat_id": "oc_xxxxxxxxxxxxxxxxxxxxx",
+      "webhook_url": "",
+      "min_interval_minutes": 10
     },
     "email": {
       "enabled": false,
+      "resend_api_key": "re_xxxxxxxxxxxxx",
       "subscribers": [
         "your-email@example.com"
       ],

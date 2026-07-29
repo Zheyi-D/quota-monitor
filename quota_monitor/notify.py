@@ -185,115 +185,119 @@ def send_feishu_webhook(webhook_url, text, title="🔔 香港入境处预约配�
         return False
 
 
-# ─── 邮件 (agently-cli) ────────────────────────────────────────────
+# ─── 邮件 (Resend API + agently-cli 本地回退) ──────────────────────
 
-def _agently_available():
-    """检查 agently-cli 是否可用。"""
-    try:
-        result = subprocess.run(
-            ["agently-cli", "--version"],
-            capture_output=True, text=True, timeout=10,
-        )
-        return result.returncode == 0
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return False
+RESEND_API_URL = "https://api.resend.com/emails"
+EMAIL_FROM = "Quota Monitor <quota-monitor@resend.dev>"
 
 
-def send_email_agently(to, subject, body, from_name="HK Quota Monitor"):
-    """通过 agently-cli 发送邮件（两阶段确认自动化）。
+def send_email_resend(to, subject, body, api_key=None):
+    """通过 Resend API 发送邮件（推荐，CI 友好）。
 
     Args:
         to: 收件人邮箱地址
         subject: 邮件主题
-        body: 邮件正文
-        from_name: 发件人显示名称
+        body: 邮件正文（支持纯文本）
+        api_key: Resend API key，为 None 时从环境变量 RESEND_API_KEY 读取
 
     Returns:
         bool: 是否发送成功
     """
-    if not _agently_available():
-        logger.error("agently-cli 不可用，无法发送邮件")
+    if not api_key:
+        api_key = os.environ.get("RESEND_API_KEY", "")
+    if not api_key:
+        logger.warning("未配置 Resend API key，跳过邮件发送")
+        return False
+
+    try:
+        resp = requests.post(
+            RESEND_API_URL,
+            json={
+                "from": EMAIL_FROM,
+                "to": [to],
+                "subject": subject,
+                "text": body,
+            },
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            timeout=15,
+        )
+        if resp.status_code in (200, 201):
+            logger.info("Resend 邮件发送成功: %s", to)
+            return True
+        else:
+            logger.error("Resend 返回 %d: %s", resp.status_code, resp.text[:300])
+            return False
+    except requests.Timeout:
+        logger.error("Resend 请求超时")
+        return False
+    except Exception as e:
+        logger.error("Resend 异常: %s", e)
+        return False
+
+
+def send_email_agently(to, subject, body):
+    """通过 agently-cli 发送邮件（本地回退方案）。
+
+    Returns:
+        bool: 是否发送成功
+    """
+    import subprocess
+
+    try:
+        subprocess.run(["agently-cli", "--version"],
+                       capture_output=True, timeout=5)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        logger.warning("agently-cli 不可用，跳过邮件发送")
         return False
 
     base_cmd = [
         "agently-cli", "message", "+send",
-        "--to", to,
-        "--subject", subject,
-        "--body", body,
+        "--to", to, "--subject", subject, "--body", body,
         "--format", "json",
     ]
-
     env = os.environ.copy()
     env.setdefault("LARKSUITE_CLI_NO_UPDATE_NOTIFIER", "1")
 
-    # 第一阶段：请求发送（预期 exit code 8，需要 confirmation token）
+    # 第一阶段
     try:
         result = subprocess.run(
-            base_cmd, capture_output=True, text=True, timeout=30, env=env,
-        )
-    except subprocess.TimeoutExpired:
-        logger.error("agently-cli 第一阶段超时")
-        return False
-    except FileNotFoundError:
-        logger.error("agently-cli 未找到")
+            base_cmd, capture_output=True, text=True, timeout=30, env=env)
+    except (subprocess.TimeoutExpired, FileNotFoundError):
         return False
 
-    # 如果直接成功（exit 0），不需要第二阶段
     if result.returncode == 0:
-        logger.info("邮件发送成功（单阶段）: %s", to)
+        logger.info("agently-cli 邮件发送成功: %s", to)
         return True
 
-    # exit code 8 = 需要 confirmation token（预期行为）
     if result.returncode != 8:
-        logger.error("agently-cli 意外退出码 %d: stdout=%s stderr=%s",
-                     result.returncode,
-                     result.stdout[:300] if result.stdout else "",
-                     result.stderr[:300] if result.stderr else "")
+        logger.error("agently-cli 错误: exit=%d", result.returncode)
         return False
 
     # 解析 confirmation token
     try:
         response = json.loads(result.stdout) if result.stdout.strip() else {}
     except json.JSONDecodeError:
-        logger.error("无法解析 agently-cli 响应 JSON: %s", result.stdout[:300])
+        logger.error("agently-cli JSON 解析失败")
         return False
 
-    confirmation_token = response.get("data", {}).get("confirmation_token")
-    if not confirmation_token:
-        logger.error("响应中缺少 confirmation_token: %s",
-                     json.dumps(response, ensure_ascii=False)[:300])
+    token = response.get("data", {}).get("confirmation_token", "")
+    if not token:
         return False
 
-    logger.debug("获取到 confirmation_token: %s...", confirmation_token[:12])
-
-    # 第二阶段：携带 token 确认发送
-    confirm_cmd = base_cmd + ["--confirmation-token", confirmation_token]
+    # 第二阶段
+    confirm_cmd = base_cmd + ["--confirmation-token", token]
     try:
         result2 = subprocess.run(
-            confirm_cmd, capture_output=True, text=True, timeout=30, env=env,
-        )
+            confirm_cmd, capture_output=True, text=True, timeout=30, env=env)
     except subprocess.TimeoutExpired:
-        logger.error("agently-cli 第二阶段超时")
         return False
 
-    if result2.returncode == 0:
-        logger.info("邮件发送成功（两阶段）: %s", to)
-        return True
-
-    # 错误分类
-    error_codes = {
-        1: "参数错误",
-        2: "认证失败",
-        3: "授权失效（需重新登录）",
-        4: "网络错误",
-        5: "服务器错误",
-        6: "附件问题",
-        7: "限频（需等待 Retry-After）",
-    }
-    error_desc = error_codes.get(result2.returncode, f"未知错误 ({result2.returncode})")
-    logger.error("邮件发送失败 [%s]: %s", error_desc,
-                 result2.stderr[:300] if result2.stderr else result2.stdout[:300])
-    return False
+    ok = result2.returncode == 0
+    logger.info("agently-cli 邮件: %s -> %s", "OK" if ok else "FAIL", to)
+    return ok
 
 
 # ─── 频率控制 ───────────────────────────────────────────────────────
@@ -429,14 +433,19 @@ def send_notifications(text, subject, config=None):
     email_cfg = config.get("email", {})
     email_enabled = email_cfg.get("enabled", False)
     subscribers = email_cfg.get("subscribers", [])
+    resend_api_key = email_cfg.get("resend_api_key", "")
 
     if email_enabled and subscribers:
         min_interval = email_cfg.get("min_interval_minutes", 30) * 60
         if _can_send("email", min_interval, max_daily=DEFAULT_MAX_EMAIL_DAILY):
             for recipient in subscribers:
-                if send_email_agently(recipient, subject, text):
+                # Resend API 优先（CI 友好）
+                sent = send_email_resend(recipient, subject, text, resend_api_key)
+                if not sent:
+                    # 本地回退：agently-cli
+                    sent = send_email_agently(recipient, subject, text)
+                if sent:
                     result["email"] += 1
-                # 每个收件人之间短暂间隔，避免触发限频
                 if len(subscribers) > 1:
                     time.sleep(2)
             if result["email"] > 0:
@@ -479,15 +488,17 @@ def _ci_config():
         config["feishu"]["enabled"] = True
         config["feishu"]["webhook_url"] = webhook_url
 
-    # 邮件订阅者 (CI 环境变量，JSON 数组)
+    # 邮件 (Resend API key + 订阅者列表)
+    resend_api_key = os.environ.get("RESEND_API_KEY", "")
     email_subscribers = os.environ.get("EMAIL_SUBSCRIBERS", "")
-    if email_subscribers:
+    if resend_api_key and email_subscribers:
         try:
             subscribers = json.loads(email_subscribers)
             if isinstance(subscribers, list):
                 config["email"]["enabled"] = True
+                config["email"]["resend_api_key"] = resend_api_key
                 config["email"]["subscribers"] = subscribers
         except json.JSONDecodeError:
-            logger.warning("EMAIL_SUBSCRIBERS 环境变量 JSON 解析失败")
+            logger.warning("EMAIL_SUBSCRIBERS JSON 解析失败")
 
     return config
