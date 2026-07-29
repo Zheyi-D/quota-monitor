@@ -330,10 +330,20 @@ th.today {
 /* ── Promo (JobHub) ── */
 .promo-box {
   margin-top: 16px;
-  border: 1px dashed var(--accent);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+.promo-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  padding: 14px 18px;
+  transition: background 0.15s;
+}
+.promo-link:hover {
   background: var(--bg);
-  padding: 12px 18px;
 }
 .promo-content {
   display: flex;
@@ -347,14 +357,11 @@ th.today {
   color: var(--text);
   white-space: nowrap;
 }
-.promo-title a {
-  font-weight: 600;
-  color: var(--accent);
-  text-decoration: none;
-}
-.promo-title a:hover { text-decoration: underline; }
 .promo-desc {
   color: var(--text-secondary);
+}
+.promo-link:hover .promo-desc {
+  color: var(--text);
 }
 
 /* ── Footer ── */
