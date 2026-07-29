@@ -1,86 +1,14 @@
 /**
- * quota-monitor 邮箱订阅 Cloudflare Worker v2
+ * quota-monitor 邮箱订阅 Worker v6
  */
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "POST, OPTIONS, GET",
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
-const SUBSCRIBERS_PATH = "data/subscribers.json";
-const API_BASE = "https://api.github.com";
-
-function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json", ...CORS },
-  });
-}
-
-function ok(msg, extra = {}) {
-  return json({ ok: true, message: msg, ...extra });
-}
-
-function fail(msg, status = 400) {
-  return json({ ok: false, message: msg }, status);
-}
-
-function isValidEmail(email) {
-  return /^[^\s@]{1,100}@[^\s@]{1,100}\.[^\s@]{2,20}$/.test(email);
-}
-
-// ── GitHub API helpers ──
-
-async function ghGet(path, token, repo) {
-  const url = `${API_BASE}/repos/${repo}/contents/${path}`;
-  const resp = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "User-Agent": "quota-monitor",
-      Accept: "application/vnd.github.v3+json",
-    },
-  });
-  // 404 means file doesn't exist yet — that's ok
-  if (resp.status === 404) {
-    return { exists: false, emails: [], sha: null };
-  }
-  if (!resp.ok) {
-    throw new Error(`GET ${resp.status}: ${(await resp.text()).substring(0, 200)}`);
-  }
-  const data = await resp.json();
-  const decoder = new TextDecoder();
-  const raw = decoder.decode(Uint8Array.from(atob(data.content), c => c.charCodeAt(0)));
-  const emails = JSON.parse(raw);
-  return { exists: true, emails: Array.isArray(emails) ? emails : [], sha: data.sha };
-}
-
-async function ghPut(path, emails, sha, token, repo, newEmail) {
-  const content = btoa(unescape(encodeURIComponent(JSON.stringify(emails, null, 2) + "\n")));
-  const url = `${API_BASE}/repos/${repo}/contents/${path}`;
-  const body = {
-    message: `📧 Subscribe: ${newEmail}`,
-    content,
-  };
-  if (sha) body.sha = sha;
-
-  const resp = await fetch(url, {
-    method: "PUT",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "User-Agent": "quota-monitor",
-      Accept: "application/vnd.github.v3+json",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  if (!resp.ok) {
-    throw new Error(`PUT ${resp.status}: ${(await resp.text()).substring(0, 200)}`);
-  }
-  return await resp.json();
-}
-
-// ── Main handler ──
+function json(d, s) { return new Response(JSON.stringify(d), {status:s||200, headers:{"Content-Type":"application/json",...CORS}}); }
 
 export default {
   async fetch(request, env) {
@@ -90,46 +18,62 @@ export default {
       return new Response(null, { status: 204, headers: CORS });
     }
 
-    if (request.method !== "POST" || url.pathname !== "/api/subscribe") {
-      return json({ ok: false, message: "Not Found" }, 404);
+    if (url.pathname === "/" || url.pathname === "/health") {
+      return json({ ok: true });
     }
 
-    const token = env.GITHUB_TOKEN;
-    const repo = env.GITHUB_REPO;
+    if (request.method === "POST" && url.pathname === "/api/subscribe") {
+      let body;
+      try { body = await request.json(); } catch { return json({ok:false},400); }
 
-    // Debug: check env vars (remove in production)
-    console.log("repo:", repo, "token_len:", token ? token.length : 0);
-
-    if (!token) {
-      return fail("GITHUB_TOKEN 未配置", 500);
-    }
-    if (!repo) {
-      return fail("GITHUB_REPO 未配置", 500);
-    }
-
-    let body;
-    try {
-      body = await request.json();
-    } catch {
-      return fail("请求格式错误，需要 JSON");
-    }
-
-    const email = (body.email || "").trim().toLowerCase();
-    if (!email || !isValidEmail(email)) {
-      return fail("邮箱格式无效");
-    }
-
-    try {
-      const { emails, sha } = await ghGet(SUBSCRIBERS_PATH, token, repo);
-      if (emails.includes(email)) {
-        return ok("已订阅过了！", { already_subscribed: true });
+      const email = (body.email || "").trim().toLowerCase();
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return json({ok:false,msg:"bad email"},400);
       }
+
+      const headers = {
+        Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+        "User-Agent": "quota",
+        Accept: "application/vnd.github.v3+json",
+      };
+
+      const apiUrl = `https://api.github.com/repos/${env.GITHUB_REPO}/contents/data/subscribers.json`;
+
+      // Step 1: read
+      const r1 = await fetch(apiUrl, { headers });
+      if (r1.status !== 200 && r1.status !== 404) {
+        return json({ok:false, step:"read", httpStatus:r1.status}, 500);
+      }
+
+      let emails = [], sha = null;
+      if (r1.status === 200) {
+        const d = await r1.json();
+        const raw = atob(d.content);
+        emails = JSON.parse(raw);
+        sha = d.sha;
+        if (!Array.isArray(emails)) emails = [];
+      }
+
+      if (emails.includes(email)) {
+        return json({ ok: true, msg: "already" });
+      }
+
+      // Step 2: write
       emails.push(email);
-      await ghPut(SUBSCRIBERS_PATH, emails, sha, token, repo, email);
-      return ok("订阅成功！", { total_subscribers: emails.length });
-    } catch (err) {
-      console.error("error:", err.message);
-      return fail("服务器错误: " + err.message.substring(0, 100), 500);
+      const content = btoa(JSON.stringify(emails,null,2)+"\n");
+      const r2 = await fetch(apiUrl, {
+        method: "PUT",
+        headers: {...headers, "Content-Type":"application/json"},
+        body: JSON.stringify({message:`Subscribe: ${email}`,content,...(sha?{sha}:{})}),
+      });
+
+      if (r2.ok) {
+        return json({ok:true,msg:"subscribed",total:emails.length});
+      }
+      const t = await r2.text();
+      return json({ok:false,step:"write",code:r2.status,detail:t.substring(0,200)},500);
     }
+
+    return json({ok:false,msg:"not found"},404);
   },
 };

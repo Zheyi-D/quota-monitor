@@ -30,7 +30,7 @@ const DAYS_PER_PAGE = 14;
 const DAY_NAMES = ["日", "一", "二", "三", "四", "五", "六"];
 
 // Cloudflare Worker 地址（部署后替换为实际 URL）
-const SUBSCRIBE_URL = "https://quota-monitor.YOUR_SUBDOMAIN.workers.dev/api/subscribe";
+const SUBSCRIBE_URL = "https://quota-monitor.deng-zheyi.workers.dev/api/subscribe";
 
 let quotaData = null;       // { "MM/DD/YYYY|OFFICE|R": "quota-g", ... }
 let allDates = [];           // sorted unique dates
