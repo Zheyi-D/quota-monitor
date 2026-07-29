@@ -52,6 +52,7 @@ jobs:
           git add data/ state.json
           if ! git diff --staged --quiet; then
             git commit -m "🔄 Update quota data"
+            git pull --rebase
             git push
           else
             echo "No changes to commit"
