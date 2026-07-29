@@ -45,10 +45,12 @@ def main():
     # ── 2. 导出 web 数据 ──
     export_web_data(snapshot, "data/quota.json")
 
-    # 记录最后更新时间
+    # 记录最后更新时间（北京时间）
+    import time as _time
+    bj_ts = _time.time() + 8 * 3600
+    bj_str = _time.strftime("%Y-%m-%d %H:%M:%S", _time.gmtime(bj_ts))
     with open("data/last_update.json", "w") as f:
-        json.dump({"time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                   "iso": datetime.now().isoformat()}, f)
+        json.dump({"time": bj_str}, f)
 
     # ── 3. 加载上次状态，检测变化 ──
     state = load_state("state.json")
