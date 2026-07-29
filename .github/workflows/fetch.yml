@@ -38,18 +38,24 @@ jobs:
         run: python ci_run.py
 
       - name: Commit updated data
-        continue-on-error: true
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/ state.json notify_state.json notify_log.json 2>/dev/null || true
-          if ! git diff --staged --quiet; then
-            git commit -m "🔄 Update quota data"
-            git pull --rebase
-            git push
-          else
-            echo "No changes to commit"
-          fi
+          for i in 1 2 3 4 5; do
+            if ! git diff --staged --quiet; then
+              git commit -m "🔄 Update quota data"
+              if git pull --rebase && git push; then
+                echo "Push succeeded on attempt $i"
+                break
+              fi
+              echo "Push attempt $i failed, retrying in 10s..."
+              sleep 10
+            else
+              echo "No changes to commit"
+              break
+            fi
+          done
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
