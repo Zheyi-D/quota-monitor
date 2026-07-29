@@ -3,12 +3,14 @@ name: Fetch Quota & Notify
 
 on:
   schedule:
-    - cron: '*/5 * * * *'   # 每 5 分钟（如不生效请见下方 push 触发器）
-  workflow_dispatch:         # 手动触发
-  push:                      # push 后备触发器
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+  repository_dispatch:
+    types: [fetch-quota]
+  push:
     branches:
       - main
-    paths-ignore:            # 忽略 CI 自己写的文件，避免死循环
+    paths-ignore:
       - 'data/quota.json'
       - 'state.json'
       - 'data/welcomed.json'
