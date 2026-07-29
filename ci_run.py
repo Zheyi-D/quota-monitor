@@ -141,9 +141,15 @@ def main():
         message = format_changes(changes, DEFAULT_OFFICES)
         change_hash = _hash_message(message)
 
-        # 去重：和上次通知的变化内容一样就跳过
-        state_extra = state.get("_extra", {}) if state else {}
-        last_hash = state_extra.get("last_notify_hash", "")
+        # 去重：读 last_update.json 里的 hash（这个文件 git push 比 state.json 可靠）
+        last_hash = ""
+        try:
+            with open("data/last_update.json") as f:
+                lu = json.load(f)
+                last_hash = lu.get("notify_hash", "")
+        except:
+            pass
+
         if change_hash == last_hash:
             logger.info("检测到配额变化但内容与上次相同，跳过通知")
             _append_notify_log({
@@ -209,6 +215,16 @@ def main():
                 "email": notify_result["email"],
                 "summary": f"配额变化: new={len(changes.get('newly_available',[]))} added={len(changes.get('newly_added',[]))}"
             })
+
+            # 把去重 hash 存到 last_update.json（这个文件推送稳定）
+            try:
+                with open("data/last_update.json") as f:
+                    lu = json.load(f)
+                lu["notify_hash"] = change_hash
+                with open("data/last_update.json", "w") as f:
+                    json.dump(lu, f)
+            except:
+                pass
     else:
         logger.info("配额状态无变化")
         _append_notify_log({
@@ -217,8 +233,8 @@ def main():
             "summary": "无变化"
         })
 
-    # ── 5. 保存状态（含去重哈希）──
-    save_state("state.json", snapshot, state_extra)
+    # ── 5. 保存状态 ──
+    save_state("state.json", snapshot)
 
     # ── 6. 一次性初始化 welcomed.json ──
     _init_welcomed()
