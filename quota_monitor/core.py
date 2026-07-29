@@ -240,6 +240,7 @@ def format_changes(changes, offices=None):
     lines.append("")
     lines.append("—" * 30)
     lines.append("📊 查看实时看板：https://Zheyi-D.github.io/quota-monitor")
+    lines.append("📱 加入飞书群：https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=ff3i6631-016b-40cc-989e-e4651ccd353c")
 
     return "\n".join(lines)
 

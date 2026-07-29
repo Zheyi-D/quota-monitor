@@ -12,7 +12,7 @@
 
 加入下方飞书群，机器人会自动在群里推送最新配额变化：
 
-> 📱 **[点击加入飞书群](YOUR_FEISHU_GROUP_LINK)** （待创建）
+> 📱 [点击加入飞书群](https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=ff3i6631-016b-40cc-989e-e4651ccd353c)
 
 ### 🌐 方式二：打开网页看板
 
