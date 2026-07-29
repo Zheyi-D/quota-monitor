@@ -107,7 +107,9 @@ def main():
                 subject = f"[配额监控] {datetime.now().strftime('%m/%d %H:%M')} 有变化"
                 sent_count = 0
                 for addr in subscribers:
-                    if send_email_smtp(addr, subject, message, smtp_user, smtp_pass):
+                    # 加上退订链接
+                    email_body = message + f"\n🔕 退订：https://quota-monitor.deng-zheyi.workers.dev/api/unsubscribe?email={addr}"
+                    if send_email_smtp(addr, subject, email_body, smtp_user, smtp_pass):
                         sent_count += 1
                 logger.info("邮件通知: %d/%d 封发送成功", sent_count, len(subscribers))
             else:
@@ -166,7 +168,8 @@ def _send_welcome_emails():
     )
 
     for addr in new_subs:
-        if send_email_smtp(addr, "[quota-monitor] 订阅确认", welcome_body, smtp_user, smtp_pass):
+        email_body = welcome_body + f"\n🔕 退订：https://quota-monitor.deng-zheyi.workers.dev/api/unsubscribe?email={addr}"
+        if send_email_smtp(addr, "[quota-monitor] 订阅确认", email_body, smtp_user, smtp_pass):
             welcomed.append(addr)
             logger.info("欢迎邮件已发送 (第%d封)", len(welcomed))
         else:
