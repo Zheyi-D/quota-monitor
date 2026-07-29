@@ -18,7 +18,7 @@ from quota_monitor.core import (
     format_changes,
     has_significant_change,
 )
-from quota_monitor.notify import send_email_resend, send_feishu_api, send_feishu_webhook
+from quota_monitor.notify import send_email_smtp, send_feishu_api, send_feishu_webhook
 from quota_monitor.state import load_state, save_state
 
 logging.basicConfig(
@@ -78,16 +78,17 @@ def main():
         else:
             logger.info("未配置飞书通知，跳过")
 
-        # Email via Resend
-        resend_key = os.environ.get("RESEND_API_KEY", "")
+        # Email via QQ SMTP
+        smtp_user = os.environ.get("SMTP_USERNAME", "")
+        smtp_pass = os.environ.get("SMTP_PASSWORD", "")
         email_subscribers = os.environ.get("EMAIL_SUBSCRIBERS", "")
-        if resend_key and email_subscribers:
+        if smtp_user and smtp_pass and email_subscribers:
             try:
                 subscribers = json.loads(email_subscribers)
                 subject = f"[配额监控] {datetime.now().strftime('%m/%d %H:%M')} 有变化"
                 sent_count = 0
                 for addr in subscribers:
-                    if send_email_resend(addr, subject, message, resend_key):
+                    if send_email_smtp(addr, subject, message, smtp_user, smtp_pass):
                         sent_count += 1
                 logger.info("邮件通知: %d/%d 封发送成功", sent_count, len(subscribers))
             except json.JSONDecodeError:

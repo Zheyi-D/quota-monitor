@@ -29,7 +29,8 @@
     },
     "email": {
       "enabled": false,
-      "resend_api_key": "re_xxxxxxxxxxxxx",
+      "smtp_username": "your-qq-email@qq.com",
+      "smtp_password": "YOUR_QQ_SMTP_AUTH_CODE",
       "subscribers": [
         "your-email@example.com"
       ],

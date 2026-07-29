@@ -185,20 +185,66 @@ def send_feishu_webhook(webhook_url, text, title="🔔 香港入境处预约配�
         return False
 
 
-# ─── 邮件 (Resend API + agently-cli 本地回退) ──────────────────────
+# ─── 邮件 (QQ SMTP + agently-cli 本地回退) ──────────────────────
 
-RESEND_API_URL = "https://api.resend.com/emails"
-EMAIL_FROM = "Quota Monitor <quota-monitor@resend.dev>"
+# QQ 邮箱 SMTP 配置
+SMTP_HOST = "smtp.qq.com"
+SMTP_PORT = 587
+
+
+def send_email_smtp(to, subject, body, username=None, password=None):
+    """通过 QQ SMTP 发送邮件（推荐，CI 友好，500封/天）。
+
+    Args:
+        to: 收件人邮箱
+        subject: 邮件主题
+        body: 邮件正文（纯文本）
+        username: QQ 邮箱地址，为 None 时从环境变量 SMTP_USERNAME 读取
+        password: QQ SMTP 授权码，为 None 时从环境变量 SMTP_PASSWORD 读取
+
+    Returns:
+        bool: 是否发送成功
+    """
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+
+    if not username:
+        username = os.environ.get("SMTP_USERNAME", "")
+    if not password:
+        password = os.environ.get("SMTP_PASSWORD", "")
+
+    if not username or not password:
+        logger.warning("未配置 QQ SMTP 凭据，跳过邮件发送")
+        return False
+
+    msg = MIMEMultipart()
+    msg["From"] = f"Quota Monitor <{username}>"
+    msg["To"] = to
+    msg["Subject"] = subject
+    msg.attach(MIMEText(body, "plain", "utf-8"))
+
+    try:
+        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15)
+        server.starttls()
+        server.login(username, password)
+        server.sendmail(username, [to], msg.as_string())
+        server.quit()
+        logger.info("QQ SMTP 邮件发送成功: %s", to)
+        return True
+    except smtplib.SMTPAuthenticationError:
+        logger.error("QQ SMTP 认证失败，请检查邮箱地址和授权码")
+        return False
+    except smtplib.SMTPConnectError:
+        logger.error("无法连接 QQ SMTP 服务器")
+        return False
+    except Exception as e:
+        logger.error("SMTP 异常: %s", e)
+        return False
 
 
 def send_email_resend(to, subject, body, api_key=None):
-    """通过 Resend API 发送邮件（推荐，CI 友好）。
-
-    Args:
-        to: 收件人邮箱地址
-        subject: 邮件主题
-        body: 邮件正文（支持纯文本）
-        api_key: Resend API key，为 None 时从环境变量 RESEND_API_KEY 读取
+    """通过 Resend API 发送邮件（备选方案）。
 
     Returns:
         bool: 是否发送成功
@@ -206,14 +252,13 @@ def send_email_resend(to, subject, body, api_key=None):
     if not api_key:
         api_key = os.environ.get("RESEND_API_KEY", "")
     if not api_key:
-        logger.warning("未配置 Resend API key，跳过邮件发送")
         return False
 
     try:
         resp = requests.post(
-            RESEND_API_URL,
+            "https://api.resend.com/emails",
             json={
-                "from": EMAIL_FROM,
+                "from": "Quota Monitor <quota-monitor@resend.dev>",
                 "to": [to],
                 "subject": subject,
                 "text": body,
@@ -228,13 +273,9 @@ def send_email_resend(to, subject, body, api_key=None):
             logger.info("Resend 邮件发送成功: %s", to)
             return True
         else:
-            logger.error("Resend 返回 %d: %s", resp.status_code, resp.text[:300])
+            logger.debug("Resend 返回 %d: %s", resp.status_code, resp.text[:200])
             return False
-    except requests.Timeout:
-        logger.error("Resend 请求超时")
-        return False
-    except Exception as e:
-        logger.error("Resend 异常: %s", e)
+    except Exception:
         return False
 
 
@@ -433,16 +474,22 @@ def send_notifications(text, subject, config=None):
     email_cfg = config.get("email", {})
     email_enabled = email_cfg.get("enabled", False)
     subscribers = email_cfg.get("subscribers", [])
+    smtp_username = email_cfg.get("smtp_username", "")
+    smtp_password = email_cfg.get("smtp_password", "")
     resend_api_key = email_cfg.get("resend_api_key", "")
 
     if email_enabled and subscribers:
         min_interval = email_cfg.get("min_interval_minutes", 30) * 60
         if _can_send("email", min_interval, max_daily=DEFAULT_MAX_EMAIL_DAILY):
             for recipient in subscribers:
-                # Resend API 优先（CI 友好）
-                sent = send_email_resend(recipient, subject, text, resend_api_key)
+                # QQ SMTP 优先（最稳）
+                sent = send_email_smtp(recipient, subject, text,
+                                       smtp_username, smtp_password)
+                # Resend 备选
                 if not sent:
-                    # 本地回退：agently-cli
+                    sent = send_email_resend(recipient, subject, text, resend_api_key)
+                # agently-cli 本地回退
+                if not sent:
                     sent = send_email_agently(recipient, subject, text)
                 if sent:
                     result["email"] += 1
@@ -488,14 +535,18 @@ def _ci_config():
         config["feishu"]["enabled"] = True
         config["feishu"]["webhook_url"] = webhook_url
 
-    # 邮件 (Resend API key + 订阅者列表)
+    # 邮件 (QQ SMTP + Resend + 订阅者列表)
+    smtp_username = os.environ.get("SMTP_USERNAME", "")
+    smtp_password = os.environ.get("SMTP_PASSWORD", "")
     resend_api_key = os.environ.get("RESEND_API_KEY", "")
     email_subscribers = os.environ.get("EMAIL_SUBSCRIBERS", "")
-    if resend_api_key and email_subscribers:
+    if (smtp_username and smtp_password) or resend_api_key:
         try:
-            subscribers = json.loads(email_subscribers)
-            if isinstance(subscribers, list):
+            subscribers = json.loads(email_subscribers) if email_subscribers else []
+            if isinstance(subscribers, list) and subscribers:
                 config["email"]["enabled"] = True
+                config["email"]["smtp_username"] = smtp_username
+                config["email"]["smtp_password"] = smtp_password
                 config["email"]["resend_api_key"] = resend_api_key
                 config["email"]["subscribers"] = subscribers
         except json.JSONDecodeError:
