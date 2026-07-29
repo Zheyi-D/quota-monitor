@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Runtime
+state.json
+notify_state.json
+*.log
+*.log.*
+
+# Config (contains secrets)
+config.json
+
+# Test
+_test_*.py
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

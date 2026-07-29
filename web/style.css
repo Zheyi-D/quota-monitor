@@ -1,0 +1,249 @@
+/* quota-monitor — HK IMMD Appointment Quota Dashboard */
+/* Brand-neutral, accessible, light/dark compatible */
+
+:root {
+  --bg: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --text: #1a1a2e;
+  --text-secondary: #6b7280;
+  --border: #e5e7eb;
+  --green: #16a34a;
+  --green-bg: #dcfce7;
+  --yellow: #ca8a04;
+  --yellow-bg: #fef9c3;
+  --red: #dc2626;
+  --red-bg: #fee2e2;
+  --gray: #9ca3af;
+  --gray-bg: #f3f4f6;
+  --accent: #2563eb;
+  --radius: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08);
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f172a;
+    --bg-secondary: #1e293b;
+    --text: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --border: #334155;
+    --green: #4ade80;
+    --green-bg: #052e16;
+    --yellow: #facc15;
+    --yellow-bg: #422006;
+    --red: #f87171;
+    --red-bg: #450a0a;
+    --gray: #64748b;
+    --gray-bg: #1e293b;
+    --accent: #60a5fa;
+  }
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+/* ── Header ── */
+header {
+  text-align: center;
+  padding: 24px 0 16px;
+}
+header h1 {
+  font-size: clamp(1.25rem, 4vw, 1.75rem);
+  font-weight: 700;
+  color: var(--text);
+}
+.subtitle {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  margin-top: 4px;
+}
+.meta {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+  margin-top: 12px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  flex-wrap: wrap;
+}
+
+/* ── Legend ── */
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.legend .dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  margin: 0 2px 0 10px;
+}
+.legend .dot:first-child { margin-left: 0; }
+.legend .dot.green  { background: var(--green); }
+.legend .dot.yellow { background: var(--yellow); }
+.legend .dot.red    { background: var(--red); }
+.legend .dot.gray   { background: var(--gray); }
+
+/* ── Toolbar ── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  flex-wrap: wrap;
+}
+.btn {
+  padding: 6px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-family: var(--font);
+  transition: background 0.15s;
+}
+.btn:hover:not(:disabled) {
+  background: var(--bg-secondary);
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.date-range {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+/* ── Table ── */
+.table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  background: var(--bg);
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-secondary);
+  padding: 10px 8px;
+  text-align: center;
+  font-weight: 600;
+  border-bottom: 2px solid var(--border);
+}
+thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  text-align: left;
+  min-width: 130px;
+  padding-left: 12px;
+}
+tbody td {
+  padding: 6px 8px;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+tbody td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--bg);
+  text-align: left;
+  padding-left: 12px;
+  font-weight: 500;
+}
+tbody tr:last-child td {
+  border-bottom: none;
+}
+tbody tr:hover td {
+  background: var(--bg-secondary);
+}
+tbody tr:hover td:first-child {
+  background: var(--bg-secondary);
+}
+
+/* ── Status Cells ── */
+td.q-g { background: var(--green-bg); color: var(--green); font-weight: 600; }
+td.q-y { background: var(--yellow-bg); color: var(--yellow); font-weight: 600; }
+td.q-r { background: var(--red-bg); color: var(--red); }
+td.q-no { background: var(--gray-bg); color: var(--gray); }
+
+/* highlight row hover overrides */
+tbody tr:hover td.q-g { background: color-mix(in srgb, var(--green-bg) 85%, var(--text)); }
+tbody tr:hover td.q-y { background: color-mix(in srgb, var(--yellow-bg) 85%, var(--text)); }
+tbody tr:hover td.q-r { background: color-mix(in srgb, var(--red-bg) 85%, var(--text)); }
+tbody tr:hover td.q-no { background: color-mix(in srgb, var(--gray-bg) 85%, var(--text)); }
+
+/* ── Weekday/Sunday styling ── */
+th.sun { color: var(--red); }
+
+/* ── Highlight today ── */
+th.today {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-radius: 4px;
+}
+
+/* ── Loading & Error ── */
+.loading, .error {
+  text-align: center;
+  padding: 48px 16px;
+  font-size: 1rem;
+  color: var(--text-secondary);
+}
+.error {
+  color: var(--red);
+}
+.hidden { display: none; }
+
+/* ── Footer ── */
+footer {
+  text-align: center;
+  padding: 24px 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+footer a {
+  color: var(--accent);
+  text-decoration: none;
+}
+footer a:hover {
+  text-decoration: underline;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .container { padding: 8px; }
+  header { padding: 16px 0 12px; }
+  thead th { padding: 8px 4px; font-size: 0.75rem; }
+  tbody td { padding: 4px; font-size: 0.75rem; }
+  thead th:first-child { min-width: 100px; }
+}

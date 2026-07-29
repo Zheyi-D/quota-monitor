@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "quota-monitor"
+version = "1.0.0"
+description = "香港入境处预约配额监控 — 实时追踪身份证换领预约名额"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+dependencies = [
+    "requests>=2.25",
+]
+
+[project.scripts]
+quota-monitor = "quota_monitor.monitor:main"
+
+[project.urls]
+Homepage = "https://github.com/dengzheyi/quota-monitor"
+Issues = "https://github.com/dengzheyi/quota-monitor/issues"

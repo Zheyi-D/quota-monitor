@@ -1,0 +1,46 @@
+{
+  "api": {
+    "svc_id": 579,
+    "timeout": 30
+  },
+
+  "offices": {
+    "FTO": "火炭办事处",
+    "RHK": "港岛办事处",
+    "RKO": "九龙办事处",
+    "RTK": "观塘办事处",
+    "TMO": "屯门办事处",
+    "YLO": "元朗办事处"
+  },
+
+  "date_range": {
+    "start": null,
+    "end": null
+  },
+
+  "notifications": {
+    "feishu": {
+      "enabled": true,
+      "webhook_url": "https://open.feishu.cn/open-apis/bot/v2/hook/YOUR_WEBHOOK_TOKEN"
+    },
+    "email": {
+      "enabled": false,
+      "subscribers": [
+        "your-email@example.com"
+      ],
+      "min_interval_minutes": 30
+    }
+  },
+
+  "retry": {
+    "max_retries": 3,
+    "backoff_base_seconds": 5
+  },
+
+  "log": {
+    "level": "INFO",
+    "file": "monitor.log",
+    "max_size_mb": 10,
+    "backup_count": 3
+  }
+}
