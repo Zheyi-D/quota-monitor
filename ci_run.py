@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """CI 入口脚本 — 供 GitHub Actions 调用，负责：拉取 API → 检测变化 → 通知 → 导出数据。"""
 
+import hashlib
 import json
 import logging
 import os
@@ -76,6 +77,11 @@ def _save_json_encrypted(path, data):
             json.dump(data, f, ensure_ascii=False)
 
 
+def _hash_message(msg):
+    """生成消息内容的 SHA256 指纹用于去重。"""
+    return hashlib.sha256(msg.encode()).hexdigest()[:16]
+
+
 def _append_notify_log(entry):
     """追加一条通知日志。"""
     logs = []
@@ -122,8 +128,8 @@ def main():
 
     changes = detect_changes(old_snapshot, snapshot)
 
-    # ── 4. 保存新状态 ──
-    save_state("state.json", snapshot)
+    # ── 4. 保存新状态（暂不写文件，等通知完带上 hash 一起存）──
+    state_extra = state.get("_extra", {}) if state else {}
 
     # ── 5. 发送通知 ──
     notify_result = {"feishu": None, "email": 0, "welcome": 0}
@@ -136,8 +142,22 @@ def main():
         })
     elif has_significant_change(changes):
         message = format_changes(changes, DEFAULT_OFFICES)
-        logger.info("检测到配额变化！")
-        print(message)
+        change_hash = _hash_message(message)
+
+        # 去重：和上次通知的变化内容一样就跳过
+        state_extra = state.get("_extra", {})
+        last_hash = state_extra.get("last_notify_hash", "")
+        if change_hash == last_hash:
+            logger.info("检测到配额变化但内容与上次相同，跳过通知")
+            _append_notify_log({
+                "time": datetime.now().isoformat(),
+                "event": "duplicate_skipped",
+                "summary": "重复变化，跳过通知"
+            })
+        else:
+            logger.info("检测到配额变化！")
+            print(message)
+            state_extra["last_notify_hash"] = change_hash
 
         # Feishu — API 模式优先（自建应用）
         app_id = os.environ.get("FEISHU_APP_ID", "")
@@ -207,6 +227,9 @@ def main():
             "event": "no_change",
             "summary": "无变化"
         })
+
+    # ── 保存状态（含去重哈希）──
+    save_state("state.json", snapshot, state_extra)
 
     # ── 6. 一次性初始化 welcomed.json ──
     _init_welcomed()
