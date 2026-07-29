@@ -6,7 +6,6 @@ on:
       - main
     paths:
       - 'web/**'
-      - 'data/**'
   workflow_dispatch:
 
 permissions:
@@ -35,6 +34,7 @@ jobs:
           mkdir -p _site/data
           cp -r web/* _site/
           cp data/quota.json _site/data/
+          if [ -f data/last_update.json ]; then cp data/last_update.json _site/data/; fi
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
