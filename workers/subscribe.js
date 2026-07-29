@@ -94,21 +94,53 @@ export default {
       }
     }
 
-    // ── Unsubscribe (GET from email link) ──
+    // ── Unsubscribe (GET from email link or POST from web page) ──
     if (url.pathname === "/api/unsubscribe") {
-      const email = (url.searchParams.get("email") || "").trim().toLowerCase();
+      // Support both GET (email link) and POST (web page)
+      let email;
+      if (request.method === "POST") {
+        try { const b = await request.json(); email = b.email; } catch { email = ""; }
+      } else {
+        email = url.searchParams.get("email") || "";
+      }
+      email = email.trim().toLowerCase();
       if (!isValidEmail(email)) {
-        return html("<h2>❌ 邮箱格式不正确</h2>");
+        return request.method === "POST" ? json({ok:false,msg:"bad email"},400) : html("<h2>❌ 邮箱格式不正确</h2>");
       }
 
       try {
         const result = await modifySubscribers(env, "unsubscribe", email);
         if (result.notFound) {
-          return html("<h2>📭 该邮箱不在订阅列表中</h2><p>可能已经退订过了。</p>");
+          return request.method === "POST" ? json({ok:true,msg:"not found"}) : html("<h2>📭 该邮箱不在订阅列表中</h2><p>可能已经退订过了。</p>");
         }
-        return html("<h2>✅ 退订成功</h2><p>你已取消订阅，不会再收到配额通知邮件。</p>");
+
+        // Also remove from welcomed.json
+        try {
+          const whUrl = `https://api.github.com/repos/${env.GITHUB_REPO}/contents/data/welcomed.json`;
+          const whHeaders = {
+            Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+            "User-Agent": "quota",
+            Accept: "application/vnd.github.v3+json",
+          };
+          const wr = await fetchWithTimeout(whUrl, { headers: whHeaders }, 10000);
+          if (wr.status === 200) {
+            const wd = await wr.json();
+            let welcomed = JSON.parse(atob(wd.content));
+            if (Array.isArray(welcomed)) {
+              welcomed = welcomed.filter(e => e !== email);
+              const wContent = btoa(JSON.stringify(welcomed, null, 2) + "\n");
+              await fetchWithTimeout(whUrl, {
+                method: "PUT",
+                headers: { ...whHeaders, "Content-Type": "application/json" },
+                body: JSON.stringify({ message: "Unsubscribe", content: wContent, sha: wd.sha }),
+              }, 10000);
+            }
+          }
+        } catch { /* welcomed.json cleanup is best-effort */ }
+
+        return request.method === "POST" ? json({ok:true,msg:"unsubscribed"}) : html("<h2>✅ 退订成功</h2><p>你已取消订阅，不会再收到配额通知邮件。</p>");
       } catch (err) {
-        return html("<h2>❌ 退订失败</h2><p>服务器错误，请稍后重试。</p>");
+        return request.method === "POST" ? json({ok:false,msg:err.message},500) : html("<h2>❌ 退订失败</h2><p>服务器错误，请稍后重试。</p>");
       }
     }
 

@@ -147,6 +147,18 @@ header h1 {
 .btn-subscribe:disabled {
   opacity: 0.5;
 }
+.btn-unsubscribe {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: var(--border);
+  font-size: 0.75rem;
+  padding: 6px 10px;
+}
+.btn-unsubscribe:hover:not(:disabled) {
+  background: var(--red-bg);
+  color: var(--red);
+  border-color: var(--red);
+}
 .subscribe-msg {
   font-size: 0.82rem;
   white-space: nowrap;

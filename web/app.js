@@ -255,6 +255,47 @@ async function handleSubscribe() {
   }
 }
 
+async function handleUnsubscribe() {
+  const input = document.getElementById("subscribeEmail");
+  const btn = document.getElementById("unsubscribeBtn");
+  const msg = document.getElementById("subscribeMsg");
+  const email = input.value.trim();
+
+  function showMsg(text, cls) {
+    msg.textContent = text;
+    msg.className = "subscribe-msg " + cls;
+    msg.classList.remove("hidden");
+  }
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    showMsg("请输入要退订的邮箱", "warning");
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "...";
+
+  try {
+    const resp = await fetch(SUBSCRIBE_URL.replace("/api/subscribe", "/api/unsubscribe"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      showMsg("退订成功！", "success");
+      input.value = "";
+    } else {
+      showMsg(data.msg === "not found" ? "该邮箱未订阅" : "退订失败，请稍后重试", "error");
+    }
+  } catch {
+    showMsg("网络错误，请稍后重试", "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "退订";
+  }
+}
+
 // ─── Init ─────────────────────────────────────────────────────
 
 async function init() {
@@ -273,6 +314,7 @@ async function init() {
   document.getElementById("btnPrev").addEventListener("click", goPrev);
   document.getElementById("btnNext").addEventListener("click", goNext);
   document.getElementById("subscribeBtn").addEventListener("click", handleSubscribe);
+  document.getElementById("unsubscribeBtn").addEventListener("click", handleUnsubscribe);
   document.getElementById("subscribeEmail").addEventListener("keydown", (e) => {
     if (e.key === "Enter") handleSubscribe();
   });
