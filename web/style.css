@@ -191,14 +191,7 @@ header h1 {
 .subscribe-msg.warning { color: var(--yellow); }
 .subscribe-msg.error { color: var(--red); }
 
-/* ── Toolbar ── */
-.toolbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 0;
-  flex-wrap: wrap;
-}
+/* ── Shared Button ── */
 .btn {
   padding: 6px 16px;
   border: 1px solid var(--border);
@@ -210,16 +203,17 @@ header h1 {
   font-family: var(--font);
   transition: background 0.15s;
 }
-.btn:hover:not(:disabled) {
-  background: var(--bg-secondary);
-}
-.btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+.btn:hover:not(:disabled) { background: var(--bg-secondary); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Toolbar ── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  padding: 8px 0 0;
 }
 .date-range {
-  margin-left: auto;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   color: var(--text-secondary);
 }
 
@@ -231,7 +225,13 @@ header h1 {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   background: var(--bg);
+  /* Smooth scrollbar for Webkit */
+  scroll-behavior: smooth;
 }
+.table-wrapper::-webkit-scrollbar { height: 8px; }
+.table-wrapper::-webkit-scrollbar-track { background: var(--bg-secondary); border-radius: 4px; }
+.table-wrapper::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.table-wrapper::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
 table {
   width: 100%;
   border-collapse: collapse;
