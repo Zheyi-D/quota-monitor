@@ -123,9 +123,7 @@ def _write_notify_marker(hash_val):
             input=json.dumps(body), capture_output=True, text=True, timeout=15,
         )
         if result.returncode != 0:
-            logger.debug("写入 notify_marker 失败: %s", result.stderr[:200])
-        else:
-            logger.info("去重标记已写入: %s", hash_val[:8])
+            logger.warning("写入 notify_marker 失败: %s", result.stderr[:200])
     except Exception as e:
         logger.debug("写入 notify_marker 异常: %s", e)
 
@@ -198,8 +196,6 @@ def main():
 
         # 去重：通过 GitHub API 读取上次通知的指纹
         last_hash = _read_notify_marker()
-        logger.info("去重检查: 本次=%s 上次=%s => %s", change_hash[:8], last_hash[:8],
-                    "跳过" if change_hash == last_hash else "发送")
 
         if change_hash == last_hash:
             logger.info("检测到配额变化但内容与上次相同，跳过通知")
