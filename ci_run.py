@@ -88,11 +88,13 @@ def _read_notify_marker():
             capture_output=True, text=True, timeout=15,
         )
         if result.returncode != 0:
+            logger.debug("读取 notify_marker 失败 (rc=%d): %s", result.returncode, result.stderr[:200])
             return ""
         data = json.loads(result.stdout)
         import base64
         return base64.b64decode(data["content"]).decode().strip()
-    except Exception:
+    except Exception as e:
+        logger.debug("读取 notify_marker 异常: %s", e)
         return ""
 
 def _write_notify_marker(hash_val):
@@ -112,16 +114,20 @@ def _write_notify_marker(hash_val):
             pass
 
         content_b64 = base64.b64encode(hash_val.encode()).decode()
-        body = json.dumps({"message": "update notify marker", "content": content_b64})
+        body = {"message": "update notify marker", "content": content_b64}
         if sha:
-            body = json.dumps({"message": "update notify marker", "content": content_b64, "sha": sha})
+            body["sha"] = sha
 
-        subprocess.run(
+        result = subprocess.run(
             ["gh", "api", "-X", "PUT", api_url, "--input", "-"],
-            input=body, capture_output=True, text=True, timeout=15,
+            input=json.dumps(body), capture_output=True, text=True, timeout=15,
         )
-    except Exception:
-        pass  # 标记写入失败不影响通知发送
+        if result.returncode != 0:
+            logger.debug("写入 notify_marker 失败: %s", result.stderr[:200])
+        else:
+            logger.info("去重标记已写入: %s", hash_val[:8])
+    except Exception as e:
+        logger.debug("写入 notify_marker 异常: %s", e)
 
 
 def _hash_message(msg):
@@ -190,6 +196,8 @@ def main():
 
         # 去重：通过 GitHub API 读取上次通知的指纹
         last_hash = _read_notify_marker()
+        logger.info("去重检查: 本次=%s 上次=%s => %s", change_hash[:8], last_hash[:8],
+                    "跳过" if change_hash == last_hash else "发送")
 
         if change_hash == last_hash:
             logger.info("检测到配额变化但内容与上次相同，跳过通知")
