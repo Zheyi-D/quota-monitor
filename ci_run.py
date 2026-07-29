@@ -162,6 +162,11 @@ def main():
             })
     else:
         logger.info("配额状态无变化")
+        _append_notify_log({
+            "time": datetime.now().isoformat(),
+            "event": "no_change",
+            "summary": "无变化"
+        })
 
     # ── 6. 发送欢迎邮件给新订阅者 ──
     _send_welcome_emails()
