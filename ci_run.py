@@ -190,7 +190,8 @@ def main():
                         if addr not in subscribers:
                             subscribers.append(addr)
                 if subscribers:
-                    subject = f"[配额监控] {datetime.now().strftime('%m/%d %H:%M')} 有变化"
+                    bj_now = _time.strftime("%m/%d %H:%M", _time.gmtime(_time.time() + 8 * 3600))
+                    subject = f"[配额监控] {bj_now} 有变化"
                     sent_count = 0
                     for addr in subscribers:
                         email_body = message + f"\n🔕 退订：https://quota-monitor.deng-zheyi.workers.dev/api/unsubscribe?email={addr}"
