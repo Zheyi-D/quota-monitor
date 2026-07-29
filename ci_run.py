@@ -192,7 +192,9 @@ def main():
         })
     elif has_significant_change(changes):
         message = format_changes(changes, DEFAULT_OFFICES)
-        change_hash = _hash_message(message)
+        # 用变化内容生成 hash（不含时间戳）
+        core_data = json.dumps(changes.get("newly_available", []) + changes.get("newly_added", []), sort_keys=True)
+        change_hash = _hash_message(core_data)
 
         # 去重：通过 GitHub API 读取上次通知的指纹
         last_hash = _read_notify_marker()
