@@ -7,13 +7,6 @@ on:
   workflow_dispatch:
   repository_dispatch:
     types: [fetch-quota]
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - 'data/quota.json'
-      - 'state.json'
-      - 'data/welcomed.json'
 
 jobs:
   fetch:

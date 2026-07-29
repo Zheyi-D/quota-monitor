@@ -1,0 +1,52 @@
+name: Welcome New Subscribers
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'data/subscribers.json'
+  workflow_dispatch:
+
+jobs:
+  welcome:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests cryptography
+
+      - name: Send welcome emails
+        env:
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+        run: python -c "
+import os, sys, json
+sys.path.insert(0, '.')
+from ci_run import _send_welcome_emails, _load_json_encrypted, _save_json_encrypted
+_send_welcome_emails()
+
+# Also commit welcomed.json if changed
+import subprocess
+subprocess.run(['git','config','user.name','github-actions[bot]'])
+subprocess.run(['git','config','user.email','github-actions[bot]@users.noreply.github.com'])
+subprocess.run(['git','add','data/welcomed.json'])
+result = subprocess.run(['git','diff','--staged','--quiet'], capture_output=True)
+if result.returncode != 0:
+    subprocess.run(['git','commit','-m','Welcome new subscriber'])
+    subprocess.run(['git','pull','--rebase'])
+    subprocess.run(['git','push'])
+else:
+    print('No changes to commit')
+"
