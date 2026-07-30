@@ -41,7 +41,7 @@ jobs:
           git add data/welcomed.json
           if ! git diff --staged --quiet; then
             git commit -m "Welcome new subscriber"
-            git pull --rebase
+            git pull --rebase || (git rebase --abort 2>/dev/null; git checkout --theirs data/welcomed.json; git pull --rebase)
             git push
           else
             echo "No changes to commit"
