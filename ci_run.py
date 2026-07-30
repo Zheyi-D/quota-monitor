@@ -305,7 +305,7 @@ def main():
                     subject = f"[配额监控] {bj_now} 有变化"
                     sent_count = 0
                     for addr in subscribers:
-                        email_body = message + f"\n🔕 退订：https://quota-monitor.deng-zheyi.workers.dev/api/unsubscribe?email={addr}"
+                        email_body = _email_html("🔔 新预约配额放出！", message) + _email_footer(addr)
                         if send_email_smtp(addr, subject, email_body, smtp_user, smtp_pass):
                             sent_count += 1
                     logger.info("邮件通知: %d/%d", sent_count, len(subscribers))
@@ -385,22 +385,13 @@ def _send_welcome_emails():
     if not new_subs:
         return
 
-    welcome_body = (
-        "您已成功订阅香港入境处预约配额监控！\n\n"
-        "当各人事登记办事处放出新的换领身份证预约名额时，\n"
-        "我们会第一时间通过邮件通知您。\n\n"
-        "📊 实时看板：https://Zheyi-D.github.io/quota-monitor\n"
-        "📋 预约办理：https://www.gov.hk/sc/apps/immdicbooking2.htm\n"
-        "🪧 配额查询：https://eservices.es2.immd.gov.hk/es/quota-enquiry-client/?l=zh-CN&appId=579\n"
-        "📱 飞书群：https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=49ar968e-150c-4e7f-bae4-95cae408033b\n\n"
-        "⚠️ 免责声明：本系统为第三方开源工具，非香港入境事务处官方服务。\n"
-        "请以官网信息为准，本系统不对数据延迟或遗漏承担责任。\n"
-        "本项目仅供学习交流，请勿用于商业盈利目的。\n\n"
-        "— quota-monitor"
+    welcome_body = _email_html(
+        "您已成功订阅香港入境处预约配额监控！",
+        "当各人事登记办事处放出新的换领身份证预约名额时，我们会第一时间通过邮件通知您。",
     )
 
     for addr in new_subs:
-        email_body = welcome_body + f"\n🔕 退订：https://quota-monitor.deng-zheyi.workers.dev/api/unsubscribe?email={addr}"
+        email_body = welcome_body + _email_footer(addr)
         if send_email_smtp(addr, "[quota-monitor] 订阅确认", email_body, smtp_user, smtp_pass):
             welcomed.append(addr)
             logger.info("欢迎邮件已发送 (第%d封)", len(welcomed))
@@ -423,3 +414,40 @@ def _send_welcome_emails():
 
 if __name__ == "__main__":
     main()
+
+
+# ─── HTML Email Templates ───────────────────────────────────
+
+QR_URL = "https://Zheyi-D.github.io/quota-monitor/feishu-qr.jpg"
+DASHBOARD_URL = "https://Zheyi-D.github.io/quota-monitor"
+BOOKING_URL = "https://www.gov.hk/sc/apps/immdicbooking2.htm"
+FS_GROUP_URL = "https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=49ar968e-150c-4e7f-bae4-95cae408033b"
+UNSUB_BASE = "https://quota-monitor.deng-zheyi.workers.dev/api/unsubscribe?email="
+
+
+def _email_html(title, body_text):
+    """生成带二维码的 HTML 邮件。"""
+    return f"""\
+<html><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333">
+<h2 style="color:#1a73e8">{title}</h2>
+<p style="font-size:15px;line-height:1.8">{body_text.replace(chr(10),'<br>')}</p>
+<hr style="border:none;border-top:1px solid #ddd;margin:20px 0">
+<table cellpadding="8"><tr>
+<td style="vertical-align:top;padding-right:16px">
+<b>🔗 快速入口</b><br><br>
+📊 <a href="{DASHBOARD_URL}" style="color:#1a73e8">实时看板</a><br>
+📋 <a href="{BOOKING_URL}" style="color:#1a73e8">预约办理</a><br>
+📱 <a href="{FS_GROUP_URL}" style="color:#1a73e8">加入飞书群</a>
+</td>
+<td style="text-align:center;vertical-align:top">
+<b>📱 扫码加飞书群</b><br>
+<img src="{QR_URL}" width="120" height="120" style="border-radius:8px;margin-top:4px" alt="飞书群二维码">
+</td>
+</tr></table>
+<p style="font-size:12px;color:#999;margin-top:16px">⚠️ 免责声明：本系统为第三方开源工具，非香港入境事务处官方服务。请以官网信息为准。本项目仅供学习交流，请勿用于商业盈利目的。</p>
+</body></html>"""
+
+
+def _email_footer(email_addr):
+    """邮件底部退订链接。"""
+    return f'<p style="font-size:12px;color:#aaa;margin-top:20px;border-top:1px solid #eee;padding-top:12px">不想再收到此类邮件？<a href="{UNSUB_BASE}{email_addr}" style="color:#aaa">一键退订</a></p>'

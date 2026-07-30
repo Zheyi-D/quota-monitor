@@ -10,6 +10,7 @@
 import json
 import logging
 import os
+import re
 import subprocess
 import time
 from datetime import datetime, timedelta
@@ -193,14 +194,14 @@ SMTP_PORT = 587
 
 
 def send_email_smtp(to, subject, body, username=None, password=None):
-    """通过 QQ SMTP 发送邮件（推荐，CI 友好，500封/天）。
+    """通过 QQ SMTP 发送邮件（CI 友好，500封/天）。
 
     Args:
         to: 收件人邮箱
         subject: 邮件主题
-        body: 邮件正文（纯文本）
-        username: QQ 邮箱地址，为 None 时从环境变量 SMTP_USERNAME 读取
-        password: QQ SMTP 授权码，为 None 时从环境变量 SMTP_PASSWORD 读取
+        body: 邮件正文（自动检测 HTML/纯文本）
+        username: QQ 邮箱地址
+        password: QQ SMTP 授权码
 
     Returns:
         bool: 是否发送成功
@@ -218,11 +219,15 @@ def send_email_smtp(to, subject, body, username=None, password=None):
         logger.warning("未配置 QQ SMTP 凭据，跳过邮件发送")
         return False
 
+    # 自动检测 HTML
+    is_html = bool(re.search(r"<\w+[^>]*>", body))
+    subtype = "html" if is_html else "plain"
+
     msg = MIMEMultipart()
     msg["From"] = f"Quota Monitor <{username}>"
     msg["To"] = to
     msg["Subject"] = subject
-    msg.attach(MIMEText(body, "plain", "utf-8"))
+    msg.attach(MIMEText(body, subtype, "utf-8"))
 
     try:
         server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15)
