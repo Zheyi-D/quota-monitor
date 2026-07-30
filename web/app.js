@@ -326,10 +326,8 @@ document.getElementById("tabTrend").addEventListener("click", () => {
 
 // ─── Trend View: release log rendering ─────────────────────
 
-const HOURS_TREND = (() => { const a = []; for (let h = 6; h <= 23; h++) a.push(h); for (let h = 0; h <= 5; h++) a.push(h); return a; })();
+const HOURS_TREND = (() => { const a = []; for (let h = 8; h <= 22; h++) a.push(h); return a; })();
 const DAYS_TREND = ["日","一","二","三","四","五","六"];
-
-function mapSlot(h) { return (h + 18) % 24; }
 
 let batchesTrend = [];
 
@@ -357,14 +355,19 @@ async function initTrend() {
 }
 
 function updateCountdown() {
-  if (batchesTrend.length === 0) return;
-  const lb = batchesTrend[0];
   document.getElementById("tcVal").textContent =
-    lb.t.toLocaleDateString("zh-CN") + " " + lb.t.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
+    batchesTrend.length > 0
+      ? batchesTrend[0].t.toLocaleDateString("zh-CN") + " " + batchesTrend[0].t.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })
+      : "暂无记录";
 }
 
 function renderHeatmap(pd) {
-  if (batchesTrend.length === 0) return;
+  const N = HOURS_TREND.length; // 15 hours (8-22)
+  if (batchesTrend.length === 0) {
+    document.getElementById("tmHead").innerHTML = "";
+    document.getElementById("tmBody").innerHTML = `<tr><td colspan="${N+1}" style="text-align:center;padding:48px 16px;color:var(--text2);font-size:0.9rem">📊 数据收集中，放号规律将在检测到配额变化后自动生成<br><small style="color:var(--text2);opacity:0.7">系统每 2 分钟扫描一次（08:00-22:00）</small></td></tr>`;
+    return;
+  }
 
   const now = new Date();
   const cutoff = new Date(now - pd * 86400000);
@@ -377,8 +380,10 @@ function renderHeatmap(pd) {
     if (b.t < cutoff) continue;
     const dk = b.t.toLocaleDateString("zh-CN");
     const di = keys.indexOf(dk); if (di < 0) continue;
-    const slot = mapSlot(b.t.getHours());
-    cells[di * 24 + slot] = (cells[di * 24 + slot] || 0) + b.count;
+    const h = b.t.getHours();
+    const slot = h - 8; // 8→0, 9→1, ..., 22→14
+    if (slot < 0 || slot >= N) continue;
+    cells[di * N + slot] = (cells[di * N + slot] || 0) + b.count;
   }
   document.getElementById("tmHead").innerHTML =
     `<tr><th>日期 \\ 时间</th>${HOURS_TREND.map(h => `<th>${h}</th>`).join("")}</tr>`;
@@ -386,8 +391,8 @@ function renderHeatmap(pd) {
   for (let i = 0; i < keys.length; i++) {
     const p = keys[i].split("/"), dow = DAYS_TREND[dts[i].getDay()];
     bd += `<tr><td>${p[1]}/${p[2]} 周${dow}</td>`;
-    for (let j = 0; j < 24; j++) {
-      const v = cells[i * 24 + j] || 0;
+    for (let j = 0; j < N; j++) {
+      const v = cells[i * N + j] || 0;
       let c = "v0"; if (v >= 10) c = "v5"; else if (v >= 7) c = "v4"; else if (v >= 4) c = "v3"; else if (v >= 2) c = "v2"; else if (v >= 1) c = "v1";
       bd += `<td${v ? ` title="${keys[i]} ${HOURS_TREND[j]}:00 · ${v} 个日期"` : ""}><span class="tm-cell ${c}">${v || ""}</span></td>`;
     }
@@ -395,8 +400,8 @@ function renderHeatmap(pd) {
   }
   document.getElementById("tmBody").innerHTML = bd;
 
-  const hc = {}; for (let h = 0; h <= 23; h++) hc[h] = 0;
-  for (const b of batchesTrend) { if (b.t >= cutoff) hc[b.t.getHours()] += b.count; }
+  const hc = {}; for (const h of HOURS_TREND) hc[h] = 0;
+  for (const b of batchesTrend) { const h = b.t.getHours(); if (h in hc) hc[h] += b.count; }
   const ranked = Object.entries(hc).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 3);
   document.getElementById("top3List").innerHTML = ranked.map(([h, v], i) =>
     `<li><span><span class="r">${["\u{1F947}", "\u{1F948}", "\u{1F949}"][i]}</span><span class="h">${String(h).padStart(2, "0")}:00~${String(h).padStart(2, "0")}:59</span></span><span class="c">${v} 个</span></li>`
