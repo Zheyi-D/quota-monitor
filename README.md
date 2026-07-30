@@ -31,6 +31,7 @@
 > 🖥 **[quota-monitor 看板](https://Zheyi-D.github.io/quota-monitor)**
 
 - 📊 实时查看 6 个办事处的预约配额状态
+- 📈 放号规律热力图，可视化各时段放号频次
 - 📖 附无 e-visa 电话预约办理教程
 
 ---
