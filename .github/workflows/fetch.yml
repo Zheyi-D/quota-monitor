@@ -43,12 +43,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # Pull first so rebase doesn't overwrite our local files
-          git pull --rebase
           git add data/ state.json notify_state.json notify_log.json data/run.log 2>/dev/null || true
           if ! git diff --staged --quiet; then
-            git commit -m "🔄 Update quota data"
-            git push || echo "Push failed (non-critical)"
+            git commit -m "🔄 Update quota data" && (git pull --rebase && git push || git push --force-with-lease) || echo "Push failed (non-critical)"
           else
             echo "No changes to commit"
           fi
