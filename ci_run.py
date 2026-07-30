@@ -32,6 +32,27 @@ logging.basicConfig(
 logger = logging.getLogger("ci_run")
 
 NOTIFY_LOG = "data/notify_log.json"
+RUN_LOG = "data/run.log"
+
+
+def _append_run_log(line):
+    """追加一行到 CI 运行日志（传统格式）。"""
+    import time as _time
+    bj_ts = _time.time() + 8 * 3600
+    ts = _time.strftime("%Y-%m-%d %H:%M:%S BJT", _time.gmtime(bj_ts))
+    try:
+        # 只保留最近 200 行
+        lines = []
+        if os.path.exists(RUN_LOG):
+            with open(RUN_LOG) as f:
+                lines = f.readlines()
+        lines.append(f"[{ts}] {line}\n")
+        if len(lines) > 200:
+            lines = lines[-200:]
+        with open(RUN_LOG, "w") as f:
+            f.writelines(lines)
+    except Exception:
+        pass
 
 
 def _load_json_encrypted(path):
@@ -183,6 +204,7 @@ def main():
     notify_result = {"feishu": None, "email": 0, "welcome": 0}
     if is_first_run:
         logger.info("首次运行，基准快照已建立，不发送通知")
+        _append_run_log("INIT | 首次运行，基准快照已建立")
         _append_notify_log({
             "time": datetime.now().isoformat(),
             "event": "first_run",
@@ -199,6 +221,7 @@ def main():
 
         if change_hash == last_hash:
             logger.info("检测到配额变化但内容与上次相同，跳过通知")
+            _append_run_log("SKIP | 配额变化与上次相同，跳过通知")
             _append_notify_log({
                 "time": datetime.now().isoformat(),
                 "event": "duplicate_skipped",
@@ -207,6 +230,7 @@ def main():
         else:
             logger.info("检测到配额变化！")
             print(message)
+            _append_run_log(f"ALERT | 新配额放出: newly_available={len(changes.get('newly_available',[]))} newly_added={len(changes.get('newly_added',[]))}")
 
             # Feishu 通知
             app_id = os.environ.get("FEISHU_APP_ID", "")
@@ -266,6 +290,7 @@ def main():
             _write_notify_marker(change_hash)
     else:
         logger.info("配额状态无变化")
+        _append_run_log("OK | 配额状态无变化")
         _append_notify_log({
             "time": datetime.now().isoformat(),
             "event": "no_change",
