@@ -306,3 +306,113 @@ async function init() {
 }
 
 init();
+
+// ─── Tab switching ────────────────────────────────────────
+
+document.getElementById("tabQuota").addEventListener("click", () => {
+  document.getElementById("tabQuota").classList.add("active");
+  document.getElementById("tabTrend").classList.remove("active");
+  document.getElementById("viewQuota").classList.remove("hidden");
+  document.getElementById("viewTrend").classList.add("hidden");
+});
+
+document.getElementById("tabTrend").addEventListener("click", () => {
+  document.getElementById("tabTrend").classList.add("active");
+  document.getElementById("tabQuota").classList.remove("active");
+  document.getElementById("viewQuota").classList.add("hidden");
+  document.getElementById("viewTrend").classList.remove("hidden");
+  if (!window._trendLoaded) { initTrend(); window._trendLoaded = true; }
+});
+
+// ─── Trend View: release log rendering ─────────────────────
+
+const HOURS_TREND = (() => { const a = []; for (let h = 6; h <= 23; h++) a.push(h); for (let h = 0; h <= 5; h++) a.push(h); return a; })();
+const DAYS_TREND = ["日","一","二","三","四","五","六"];
+
+function mapSlot(h) { return (h + 18) % 24; }
+
+let batchesTrend = [];
+let trendRefreshTime = null;
+
+async function initTrend() {
+  try {
+    const resp = await fetch("data/release_log.json");
+    if (resp.ok) {
+      const raw = await resp.json();
+      if (Array.isArray(raw)) {
+        batchesTrend = raw.map(e => ({ t: new Date(e.t), count: e.count, dates: e.dates }));
+        batchesTrend.sort((a, b) => b.t - a.t);
+      }
+    }
+  } catch (_) { /* file may not exist yet */ }
+
+  if (batchesTrend.length > 0) {
+    trendRefreshTime = batchesTrend[0].t;
+  }
+  if (!trendRefreshTime) trendRefreshTime = new Date();
+
+  tickTrend();
+  setInterval(tickTrend, 1000);
+  updateCountdown();
+  setInterval(updateCountdown, 60000);
+  renderHeatmap(7);
+
+  document.querySelectorAll(".pill").forEach(b => b.addEventListener("click", () => {
+    document.querySelectorAll(".pill").forEach(x => x.classList.remove("on"));
+    b.classList.add("on");
+    renderHeatmap(+b.dataset.period);
+  }));
+}
+
+function tickTrend() {
+  const bj = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Shanghai" }));
+  document.getElementById("bjTime").textContent = bj.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  document.getElementById("dataRefresh").textContent = trendRefreshTime.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+function updateCountdown() {
+  if (batchesTrend.length === 0) return;
+  const lb = batchesTrend[0];
+  document.getElementById("tcVal").textContent =
+    lb.t.toLocaleDateString("zh-CN") + " " + lb.t.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
+}
+
+function renderHeatmap(pd) {
+  if (batchesTrend.length === 0) return;
+
+  const now = new Date();
+  const cutoff = new Date(now - pd * 86400000);
+  const keys = [], dts = [];
+  for (let d = new Date(cutoff); d <= now; d.setDate(d.getDate() + 1)) {
+    if (d.getDay() !== 0) { keys.push(d.toLocaleDateString("zh-CN")); dts.push(new Date(d)); }
+  }
+  const cells = {};
+  for (const b of batchesTrend) {
+    if (b.t < cutoff) continue;
+    const dk = b.t.toLocaleDateString("zh-CN");
+    const di = keys.indexOf(dk); if (di < 0) continue;
+    const slot = mapSlot(b.t.getHours());
+    cells[di * 24 + slot] = (cells[di * 24 + slot] || 0) + b.count;
+  }
+  document.getElementById("tmHead").innerHTML =
+    `<tr><th>日期 \\ 时间</th>${HOURS_TREND.map(h => `<th>${h}</th>`).join("")}</tr>`;
+  let bd = "";
+  for (let i = 0; i < keys.length; i++) {
+    const p = keys[i].split("/"), dow = DAYS_TREND[dts[i].getDay()];
+    bd += `<tr><td>${p[1]}/${p[2]} 周${dow}</td>`;
+    for (let j = 0; j < 24; j++) {
+      const v = cells[i * 24 + j] || 0;
+      let c = "v0"; if (v >= 10) c = "v5"; else if (v >= 7) c = "v4"; else if (v >= 4) c = "v3"; else if (v >= 2) c = "v2"; else if (v >= 1) c = "v1";
+      bd += `<td${v ? ` title="${keys[i]} ${HOURS_TREND[j]}:00 · ${v} 个日期"` : ""}><span class="tm-cell ${c}">${v || ""}</span></td>`;
+    }
+    bd += "</tr>";
+  }
+  document.getElementById("tmBody").innerHTML = bd;
+
+  const hc = {}; for (let h = 0; h <= 23; h++) hc[h] = 0;
+  for (const b of batchesTrend) { if (b.t >= cutoff) hc[b.t.getHours()] += b.count; }
+  const ranked = Object.entries(hc).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  document.getElementById("top3List").innerHTML = ranked.map(([h, v], i) =>
+    `<li><span><span class="r">${["\u{1F947}", "\u{1F948}", "\u{1F949}"][i]}</span><span class="h">${String(h).padStart(2, "0")}:00~${String(h).padStart(2, "0")}:59</span></span><span class="c">${v} 个</span></li>`
+  ).join("") || '<li style="color:var(--text2)">暂无数据</li>';
+}

@@ -27,6 +27,13 @@
     </div>
   </header>
 
+  <div class="tab-row">
+    <button class="tab-btn active" id="tabQuota">📊 实时配额</button>
+    <button class="tab-btn" id="tabTrend">📈 放号规律</button>
+  </div>
+
+  <div id="viewQuota">
+
   <div class="subscribe-box" id="subscribeBox">
     <div class="subscribe-inner">
       <span class="subscribe-label">📧 邮件订阅</span>
@@ -93,6 +100,51 @@
     <p>📱 <a href="https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=49ar968e-150c-4e7f-bae4-95cae408033b" target="_blank" rel="noopener">點擊加入飛書群</a> <img src="feishu-qr.jpg" alt="飞书群二维码" class="footer-qr"> · 資料來源：<a href="https://eservices.es2.immd.gov.hk/es/quota-enquiry-client/?l=zh-CN&appId=579" target="_blank" rel="noopener">香港入境事務處</a> · 每 5 分鐘自動更新 · <a href="https://github.com/Zheyi-D/quota-monitor" target="_blank" rel="noopener">GitHub</a></p>
     <p class="footer-notice">⚠️ 本專案為開源項目，僅供學習交流，請勿用於商業盈利目的。</p>
   </footer>
+</div>
+
+<div id="viewTrend" class="hidden">
+
+  <div class="kpi-row">
+    <div class="kpi-card" id="tcCountdown"><div class="kpi-label">⏱️ 上次放号时间</div><div class="kpi-big" id="tcVal">--</div></div>
+    <div class="kpi-card" style="text-align:center">
+      <div class="kpi-label">🕐 时间</div>
+      <div class="time-duo">
+        <div class="time-item"><div class="t-val" id="bjTime">--:--:--</div><div class="t-sub">北京时间</div></div>
+        <div class="time-item"><div class="t-val" id="dataRefresh">--:--:--</div><div class="t-sub">数据刷新</div></div>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">🔥 高频放号 TOP 3</div>
+      <ul class="top3" id="top3List"><li style="color:var(--text2)">暂无数据</li></ul>
+    </div>
+  </div>
+
+  <div class="sec-row">
+    <h2>📊 放号热力图</h2>
+    <div class="pills">
+      <button class="pill on" data-period="7">7 天</button>
+      <button class="pill" data-period="14">14 天</button>
+    </div>
+  </div>
+
+  <div class="tm-wrap">
+  <table class="tm-grid">
+    <thead id="tmHead"></thead>
+    <tbody id="tmBody"></tbody>
+  </table>
+  </div>
+
+  <div class="leg">
+    <span>少</span><span class="sw v0"></span><span class="sw v1"></span><span class="sw v2"></span><span class="sw v3"></span><span class="sw v4"></span><span class="sw v5"></span><span>多</span>
+    <span style="margin-left:12px">格内数字 = 该小时放出日期总数</span>
+  </div>
+
+  <footer style="margin-top:40px">
+    <p>📱 <a href="https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=49ar968e-150c-4e7f-bae4-95cae408033b" target="_blank" rel="noopener">點擊加入飛書群</a> <img src="feishu-qr.jpg" alt="飞书群二维码" class="footer-qr"> · 資料來源：<a href="https://eservices.es2.immd.gov.hk/es/quota-enquiry-client/?l=zh-CN&appId=579" target="_blank" rel="noopener">香港入境事務處</a> · 每 5 分鐘自動更新 · <a href="https://github.com/Zheyi-D/quota-monitor" target="_blank" rel="noopener">GitHub</a></p>
+    <p class="footer-notice">⚠️ 本專案為開源項目，僅供學習交流，請勿用於商業盈利目的。</p>
+  </footer>
+</div>
+
 </div>
 
 <script src="app.js"></script>

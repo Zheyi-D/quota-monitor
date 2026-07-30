@@ -7,7 +7,7 @@ import logging
 import os
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # 确保模块可导入
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -206,6 +206,49 @@ def _append_notify_log(entry):
         json.dump(logs, f, ensure_ascii=False, indent=2)
 
 
+RELEASE_LOG = "data/release_log.json"
+
+
+def _append_release_log(newly_available):
+    """追加放号记录到 release_log.json，保留 60 天。"""
+    # 提取本批次放出的日期
+    all_dates = []
+    for (date, office, qtype), old_s, new_s in newly_available:
+        if qtype == "R":  # 只记录一般服务时段
+            all_dates.append(date)
+
+    if not all_dates:
+        return
+
+    # 去重（同一日期只算一次）
+    unique_dates = sorted(set(all_dates), key=lambda d: tuple(map(int, d.split("/"))))
+
+    entry = {
+        "t": datetime.now().replace(microsecond=0).isoformat(),
+        "count": len(unique_dates),
+        "dates": unique_dates,
+    }
+
+    logs = []
+    if os.path.exists(RELEASE_LOG):
+        try:
+            with open(RELEASE_LOG) as f:
+                logs = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            logs = []
+
+    logs.insert(0, entry)
+
+    # 保留 60 天
+    cutoff = datetime.now().replace(microsecond=0) - timedelta(days=60)
+    logs = [e for e in logs if datetime.fromisoformat(e["t"]) > cutoff]
+
+    with open(RELEASE_LOG, "w") as f:
+        json.dump(logs, f, ensure_ascii=False)
+
+    logger.info("放号记录已追加: %d 个日期", len(unique_dates))
+
+
 def main():
     logger.info("CI Run — %s", datetime.now().isoformat())
 
@@ -320,6 +363,10 @@ def main():
                 "email": notify_result["email"],
                 "summary": f"配额变化: new={len(changes.get('newly_available',[]))} added={len(changes.get('newly_added',[]))}"
             })
+
+            # 记录放号到 release_log.json（仅 newly_available，忽略自动滚动的新日期）
+            if changes.get("newly_available"):
+                _append_release_log(changes["newly_available"])
 
             # 通过 GitHub API 写入去重标记（不依赖 git push）
             _write_notify_marker(change_hash)
