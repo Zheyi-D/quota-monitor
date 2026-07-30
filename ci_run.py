@@ -412,10 +412,6 @@ def _send_welcome_emails():
     })
 
 
-if __name__ == "__main__":
-    main()
-
-
 # ─── HTML Email Templates ───────────────────────────────────
 
 QR_URL = "https://Zheyi-D.github.io/quota-monitor/feishu-qr.jpg"
@@ -451,3 +447,7 @@ def _email_html(title, body_text):
 def _email_footer(email_addr):
     """邮件底部退订链接。"""
     return f'<p style="font-size:12px;color:#aaa;margin-top:20px;border-top:1px solid #eee;padding-top:12px">不想再收到此类邮件？<a href="{UNSUB_BASE}{email_addr}" style="color:#aaa">一键退订</a></p>'
+
+
+if __name__ == "__main__":
+    main()
