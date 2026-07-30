@@ -36,23 +36,58 @@ RUN_LOG = "data/run.log"
 
 
 def _append_run_log(line):
-    """追加一行到 CI 运行日志（传统格式）。"""
-    import time as _time
+    """通过 GitHub API 追加一行到 CI 运行日志，不依赖 git push。"""
+    import base64, time as _time
     bj_ts = _time.time() + 8 * 3600
     ts = _time.strftime("%Y-%m-%d %H:%M:%S BJT", _time.gmtime(bj_ts))
+    new_line = f"[{ts}] {line}\n"
+
     try:
-        lines = []
-        if os.path.exists(RUN_LOG):
-            with open(RUN_LOG) as f:
-                lines = [l for l in f.readlines() if l.strip()]
-        lines.append(f"[{ts}] {line}\n")
-        # 只保留最近 200 行
+        repo = os.environ.get("GITHUB_REPOSITORY", "")
+        api_url = f"repos/{repo}/contents/data/run.log"
+
+        # 1. 读取已有日志
+        existing = ""
+        sha = None
+        r = subprocess.run(["gh", "api", api_url], capture_output=True, text=True, timeout=10)
+        if r.returncode == 0:
+            data = json.loads(r.stdout)
+            existing = base64.b64decode(data["content"]).decode()
+            sha = data.get("sha")
+        elif "Not Found" not in r.stderr:
+            logger.debug("读取 run.log 失败: %s", r.stderr[:100])
+
+        # 2. 追加新行，保留最近 200 行
+        lines = existing.splitlines(True)
+        lines.append(new_line)
         if len(lines) > 200:
             lines = lines[-200:]
-        with open(RUN_LOG, "w") as f:
-            f.writelines(lines)
-    except Exception:
-        pass
+
+        # 3. 写入
+        content_b64 = base64.b64encode("".join(lines).encode()).decode()
+        body = {"message": "Update run log", "content": content_b64}
+        if sha:
+            body["sha"] = sha
+
+        result = subprocess.run(
+            ["gh", "api", "-X", "PUT", api_url, "--input", "-"],
+            input=json.dumps(body), capture_output=True, text=True, timeout=15,
+        )
+        if result.returncode != 0:
+            logger.debug("写入 run.log 失败: %s", result.stderr[:100])
+        else:
+            # API 成功，同时写本地供 Pages 部署
+            local_content = "".join(lines)
+            with open(RUN_LOG, "w") as f:
+                f.write(local_content)
+    except Exception as e:
+        logger.debug("run.log API 异常: %s", e)
+        # API 失败时至少写本地
+        try:
+            with open(RUN_LOG, "w") as f:
+                f.write(new_line)
+        except Exception:
+            pass
 
 
 def _load_json_encrypted(path):
