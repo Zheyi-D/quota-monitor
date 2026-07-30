@@ -212,18 +212,6 @@ def format_changes(changes, offices=None):
             status_name = STATUS_NAMES.get(new_s, new_s)
             lines.append(f"  • {date}  {office_name}({office})  {qtype_name} → {status_name}")
 
-    if changes.get("newly_added"):
-        has_any = True
-        lines.append("")
-        lines.append("🆕 **新日期可约：**")
-        lines.append("")
-        for (date, office, qtype), new_s in changes["newly_added"]:
-            if is_available(new_s):
-                office_name = offices.get(office, office)
-                qtype_name = QUOTA_TYPES.get(qtype, qtype)
-                status_name = STATUS_NAMES.get(new_s, new_s)
-                lines.append(f"  • {date}  {office_name}({office})  {qtype_name} → {status_name}")
-
     if not has_any:
         lines.append("✅ 配额状态无变化")
         lines.append(f"  共监控 {len(DEFAULT_OFFICES)} 个办事处")
@@ -244,7 +232,7 @@ def format_changes(changes, offices=None):
 
 def has_significant_change(changes):
     """判断是否有值得通知的变化（新名额放出）。"""
-    return bool(changes.get("newly_available") or changes.get("newly_added"))
+    return bool(changes.get("newly_available"))
 
 
 def _date_cmp(d1, d2):

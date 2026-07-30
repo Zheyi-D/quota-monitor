@@ -291,7 +291,7 @@ def main():
     elif has_significant_change(changes):
         message = format_changes(changes, DEFAULT_OFFICES)
         # 用变化内容生成 hash（不含时间戳）
-        core_data = json.dumps(changes.get("newly_available", []) + changes.get("newly_added", []), sort_keys=True)
+        core_data = json.dumps(changes.get("newly_available", []), sort_keys=True)
         change_hash = _hash_message(core_data)
 
         # 去重：通过 GitHub API 读取上次通知的指纹
@@ -308,7 +308,7 @@ def main():
         else:
             logger.info("检测到配额变化！")
             print(message)
-            _append_run_log(f"ALERT | 新配额放出: newly_available={len(changes.get('newly_available',[]))} newly_added={len(changes.get('newly_added',[]))}")
+            _append_run_log(f"ALERT | 新配额放出: {len(changes.get('newly_available',[]))} 个")
 
             # Feishu 通知
             app_id = os.environ.get("FEISHU_APP_ID", "")
@@ -358,10 +358,10 @@ def main():
             _append_notify_log({
                 "time": datetime.now().isoformat(),
                 "event": "quota_change",
-                "changes": len(changes.get("newly_available", [])) + len(changes.get("newly_added", [])),
+                "changes": len(changes.get("newly_available", [])),
                 "feishu": notify_result["feishu"],
                 "email": notify_result["email"],
-                "summary": f"配额变化: new={len(changes.get('newly_available',[]))} added={len(changes.get('newly_added',[]))}"
+                "summary": f"配额变化: {len(changes.get('newly_available',[]))} 个日期"
             })
 
             # 记录放号到 release_log.json（仅 newly_available，忽略自动滚动的新日期）
