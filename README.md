@@ -11,7 +11,8 @@
 ### 📱 方式一：加入飞书群（推荐）
 
 > 📱 [点击加入飞书群](https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=49ar968e-150c-4e7f-bae4-95cae408033b)
-> <img width="500" height="500" alt="7838e3cdf41847dd5dc64b0f63532c8f" src="https://github.com/user-attachments/assets/ce62afff-b2de-40be-a830-982ac580ede5" />
+> <img width="102.9" height="116.4" alt="7838e3cdf41847dd5dc64b0f63532c8f" src="https://github.com/user-attachments/assets/727ae7b7-f80a-45d9-92cb-a4203af16379" />
+
 
 
 机器人自动推送配额变化，加群即用，无需任何配置。
