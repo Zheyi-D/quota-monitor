@@ -473,9 +473,6 @@ footer a:hover {
 .kpi-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; min-width: 190px; flex: 1; }
 .kpi-label { font-size: 0.82rem; font-weight: 600; color: var(--text); margin-bottom: 10px; }
 .kpi-big { font-size: 1.65rem; font-weight: 800; line-height: 1.15; color: var(--text); }
-.time-duo { display: flex; gap: 32px; }
-.time-item .t-val { font-size: 1.6rem; font-weight: 800; color: var(--text); line-height: 1.15; }
-.time-item .t-sub { font-size: 0.7rem; color: var(--text2); }
 .top3 { list-style: none; }
 .top3 li { display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.92rem; }
 .top3 .r { font-size: 0.75rem; margin-right: 6px; }

@@ -332,7 +332,6 @@ const DAYS_TREND = ["日","一","二","三","四","五","六"];
 function mapSlot(h) { return (h + 18) % 24; }
 
 let batchesTrend = [];
-let trendRefreshTime = null;
 
 async function initTrend() {
   try {
@@ -346,13 +345,6 @@ async function initTrend() {
     }
   } catch (_) { /* file may not exist yet */ }
 
-  if (batchesTrend.length > 0) {
-    trendRefreshTime = batchesTrend[0].t;
-  }
-  if (!trendRefreshTime) trendRefreshTime = new Date();
-
-  tickTrend();
-  setInterval(tickTrend, 1000);
   updateCountdown();
   setInterval(updateCountdown, 60000);
   renderHeatmap(7);
@@ -362,12 +354,6 @@ async function initTrend() {
     b.classList.add("on");
     renderHeatmap(+b.dataset.period);
   }));
-}
-
-function tickTrend() {
-  const bj = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Shanghai" }));
-  document.getElementById("bjTime").textContent = bj.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  document.getElementById("dataRefresh").textContent = trendRefreshTime.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
 function updateCountdown() {
