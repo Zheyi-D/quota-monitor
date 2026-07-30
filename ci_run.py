@@ -41,12 +41,12 @@ def _append_run_log(line):
     bj_ts = _time.time() + 8 * 3600
     ts = _time.strftime("%Y-%m-%d %H:%M:%S BJT", _time.gmtime(bj_ts))
     try:
-        # 只保留最近 200 行
         lines = []
         if os.path.exists(RUN_LOG):
             with open(RUN_LOG) as f:
-                lines = f.readlines()
+                lines = [l for l in f.readlines() if l.strip()]
         lines.append(f"[{ts}] {line}\n")
+        # 只保留最近 200 行
         if len(lines) > 200:
             lines = lines[-200:]
         with open(RUN_LOG, "w") as f:
