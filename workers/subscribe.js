@@ -184,6 +184,68 @@ export default {
       }
     }
 
+    // ── Admin send message to Feishu group (POST) ──
+    if (request.method === "POST" && url.pathname === "/api/admin-send") {
+      // 密码核验
+      const password = env.ADMIN_PASSWORD;
+      if (!password) return json({ ok: false, msg: "ADMIN_PASSWORD not configured" }, 500);
+
+      let body;
+      try { body = await request.json(); } catch { return json({ ok: false, msg: "bad json" }, 400); }
+      if (body.password !== password) return json({ ok: false, msg: "wrong password" }, 403);
+
+      // 仅校验密码，不发消息
+      if (body.auth_only) return json({ ok: true, msg: "auth ok" });
+
+      const text = (body.text || "").trim();
+      if (!text || text.length > 4000) return json({ ok: false, msg: "text empty or too long (max 4000)" }, 400);
+
+      // 发送飞书消息
+      const appId = env.FEISHU_APP_ID;
+      const appSecret = env.FEISHU_APP_SECRET;
+      const chatId = env.FEISHU_CHAT_ID;
+      if (!appId || !appSecret || !chatId) {
+        return json({ ok: false, msg: "Feishu credentials not configured" }, 500);
+      }
+
+      try {
+        // 获取 token
+        const tokenResp = await fetch("https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
+        });
+        const tokenData = await tokenResp.json();
+        if (tokenData.code !== 0) throw new Error(`token: ${tokenData.msg}`);
+
+        // 发送消息
+        const msgResp = await fetch(
+          `https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${tokenData.tenant_access_token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              receive_id: chatId,
+              msg_type: "interactive",
+              content: JSON.stringify({
+                header: { title: { content: "📢 群主消息", tag: "plain_text" }, template: "blue" },
+                elements: [{ tag: "markdown", content: text }],
+              }),
+            }),
+          }
+        );
+        const msgData = await msgResp.json();
+        if (msgData.code !== 0) throw new Error(`send: ${msgData.msg}`);
+
+        return json({ ok: true, msg: "sent" });
+      } catch (err) {
+        return json({ ok: false, msg: err.message }, 500);
+      }
+    }
+
     return json({ ok: false, msg: "not found" }, 404);
   },
 };

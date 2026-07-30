@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>群发消息 · quota-monitor</title>
+<style>
+:root {
+  --bg: #fff; --bg2: #f8f9fa; --text: #1a1a2e; --text2: #6b7280;
+  --border: #e5e7eb; --green: #16a34a; --accent: #2563eb; --radius: 8px;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0f172a; --bg2: #1e293b; --text: #f1f5f9; --text2: #94a3b8; --border: #334155; }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+.panel { width: 100%; max-width: 500px; }
+.panel h1 { font-size: 1.3rem; margin-bottom: 4px; }
+.panel .sub { font-size: 0.82rem; color: var(--text2); margin-bottom: 20px; }
+.card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; }
+input, textarea { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); color: var(--text); font-size: 0.9rem; font-family: var(--font); margin-bottom: 12px; }
+textarea { min-height: 120px; resize: vertical; }
+input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.btn { display: inline-block; padding: 8px 24px; border: none; border-radius: var(--radius); background: var(--accent); color: #fff; font-size: 0.9rem; font-weight: 600; cursor: pointer; font-family: var(--font); }
+.btn:hover { opacity: 0.9; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.msg { margin-top: 10px; font-size: 0.85rem; }
+.msg.ok { color: var(--green); }
+.msg.err { color: var(--red); }
+.hidden { display: none; }
+.preview { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-top: 16px; font-size: 0.85rem; line-height: 1.6; white-space: pre-wrap; color: var(--text2); }
+.preview strong { color: var(--text); }
+.logout { font-size: 0.78rem; color: var(--text2); margin-top: 12px; cursor: pointer; text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="panel">
+  <h1>📢 群发消息</h1>
+  <p class="sub">通过飞书机器人向群内发送消息</p>
+
+  <!-- Login view -->
+  <div id="loginView" class="card">
+    <label>🔐 输入管理密码</label>
+    <input type="password" id="pwdInput" placeholder="输入密码...">
+    <button class="btn" id="loginBtn">验证</button>
+    <div id="loginMsg" class="msg hidden"></div>
+  </div>
+
+  <!-- Send view -->
+  <div id="sendView" class="card hidden">
+    <label>✏️ 输入消息内容（支持 Markdown）</label>
+    <textarea id="msgInput" placeholder="输入要发送的消息...&#10;&#10;**粗体**、[链接](https://...)、&#10;📊 实时看板：https://Zheyi-D.github.io/quota-monitor"></textarea>
+    <button class="btn" id="sendBtn">📤 发送到群</button>
+    <div id="sendMsg" class="msg hidden"></div>
+    <div class="preview hidden" id="previewBox">
+      <strong>📋 上次发送</strong>
+      <div id="previewContent"></div>
+    </div>
+    <span class="logout" id="logoutBtn">退出登录</span>
+  </div>
+</div>
+
+<script>
+const WORKER_URL = "https://quota-monitor.deng-zheyi.workers.dev";
+const AUTH_KEY = "qm_admin_auth";
+const AUTH_TTL = 24 * 3600 * 1000; // 24 hours
+
+const loginView = document.getElementById("loginView");
+const sendView = document.getElementById("sendView");
+const pwdInput = document.getElementById("pwdInput");
+const msgInput = document.getElementById("msgInput");
+const loginBtn = document.getElementById("loginBtn");
+const sendBtn = document.getElementById("sendBtn");
+const loginMsg = document.getElementById("loginMsg");
+const sendMsg = document.getElementById("sendMsg");
+const previewBox = document.getElementById("previewBox");
+const previewContent = document.getElementById("previewContent");
+const logoutBtn = document.getElementById("logoutBtn");
+
+// Check stored auth
+function checkAuth() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(AUTH_KEY) || "{}");
+    if (stored.expires && Date.now() < stored.expires) {
+      showSendView();
+      return;
+    }
+  } catch (_) {}
+  showLoginView();
+}
+
+function showLoginView() {
+  loginView.classList.remove("hidden");
+  sendView.classList.add("hidden");
+  pwdInput.focus();
+}
+
+function showSendView() {
+  loginView.classList.add("hidden");
+  sendView.classList.remove("hidden");
+  msgInput.focus();
+}
+
+function showMsg(el, text, ok) {
+  el.textContent = text;
+  el.className = "msg " + (ok ? "ok" : "err");
+  el.classList.remove("hidden");
+  setTimeout(() => el.classList.add("hidden"), 5000);
+}
+
+// Login
+loginBtn.addEventListener("click", async () => {
+  const password = pwdInput.value;
+  if (!password) return showMsg(loginMsg, "请输入密码", false);
+
+  loginBtn.disabled = true;
+  try {
+    const resp = await fetch(`${WORKER_URL}/api/admin-send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password, auth_only: true }),
+    });
+    if (resp.status === 200) {
+      localStorage.setItem(AUTH_KEY, JSON.stringify({ expires: Date.now() + AUTH_TTL }));
+      showMsg(loginMsg, "✅ 验证成功", true);
+      showSendView();
+    } else if (resp.status === 403) {
+      showMsg(loginMsg, "❌ 密码错误", false);
+    } else {
+      showMsg(loginMsg, "❌ 服务器错误", false);
+    }
+  } catch {
+    showMsg(loginMsg, "❌ 网络错误", false);
+  } finally {
+    loginBtn.disabled = false;
+  }
+});
+
+pwdInput.addEventListener("keydown", (e) => { if (e.key === "Enter") loginBtn.click(); });
+
+// Send
+sendBtn.addEventListener("click", async () => {
+  const text = msgInput.value.trim();
+  if (!text) return showMsg(sendMsg, "请输入消息内容", false);
+  if (text.length > 4000) return showMsg(sendMsg, "消息过长（最多 4000 字符）", false);
+
+  const stored = JSON.parse(localStorage.getItem(AUTH_KEY) || "{}");
+  // The password is verified on Worker side; we just need to check "is it real send?"
+  // Use a lightweight verification: send with a special header or just require password
+  // But we don't store the password in localStorage. Instead the Worker checks the password.
+  // Wait... the Worker requires password in the body. We need it.
+  // Let's prompt once via the stored auth token approach differently.
+  // Actually, let's just have the Worker support a simpler token, or we store it encrypted.
+  // Simplest fix: the login sends a dummy check, and we store the password locally too.
+  // SECURITY NOTE: password in localStorage is visible to anyone with browser dev tools,
+  // but this is an admin tool on a personal device, so acceptable.
+
+  // We need password for every send. Let me get it from a stored variable.
+  // Actually the login already verified it. We just need to send it again.
+  // Let's store it in a closure variable.
+
+  showMsg(sendMsg, "发送中...", true);
+  sendBtn.disabled = true;
+  try {
+    const resp = await fetch(`${WORKER_URL}/api/admin-send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: window._adminPwd, text }),
+    });
+    const data = await resp.json();
+    if (resp.ok && data.ok) {
+      showMsg(sendMsg, "✅ 已发送到群", true);
+      previewContent.textContent = text;
+      previewBox.classList.remove("hidden");
+      msgInput.value = "";
+    } else if (resp.status === 403) {
+      showMsg(sendMsg, "❌ 登录已过期，请重新验证", false);
+      localStorage.removeItem(AUTH_KEY);
+      showLoginView();
+    } else {
+      showMsg(sendMsg, "❌ " + (data.msg || "发送失败"), false);
+    }
+  } catch {
+    showMsg(sendMsg, "❌ 网络错误", false);
+  } finally {
+    sendBtn.disabled = false;
+  }
+});
+
+logoutBtn.addEventListener("click", () => {
+  localStorage.removeItem(AUTH_KEY);
+  showLoginView();
+  msgInput.value = "";
+  previewBox.classList.add("hidden");
+});
+
+// Store password in memory after login
+const origLogin = loginBtn.onclick;
+loginBtn.addEventListener("click", () => {
+  window._adminPwd = pwdInput.value;
+});
+
+checkAuth();
+</script>
+</body>
+</html>
