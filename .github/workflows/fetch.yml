@@ -43,19 +43,12 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/ state.json notify_state.json notify_log.json data/run.log 2>/dev/null || true
+          git add data/quota.json data/last_update.json data/run.log data/subscribers.json data/welcomed.json data/notify_log.json state.json notify_state.json notify_log.json 2>/dev/null || true
           if ! git diff --staged --quiet; then
             git commit -m "🔄 Update quota data" && (git pull --rebase && git push || git push --force-with-lease) || echo "Push failed (non-critical)"
           else
             echo "No changes to commit"
           fi
-
-      - name: Trigger Pages deploy
-        run: |
-          curl -s -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/pages.yml/dispatches" \
-            -d '{"ref":"main"}' || echo "Pages trigger skipped"
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
