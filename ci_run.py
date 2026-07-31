@@ -211,6 +211,34 @@ def main():
         else:
             notify_result["feishu"] = "skipped"
 
+        # Feishu DM 按日期过滤通知（在邮件之前，避免被慢速SMTP阻塞）
+        if app_id and app_secret:
+            feishu_subs = _load_json_encrypted("data/feishu_subs.json")
+            if feishu_subs and isinstance(feishu_subs, list) and feishu_subs:
+                released_dates = {date for (date, _, _), _, _ in changes.get("newly_available", [])}
+                dm_sent = 0
+                for sub in feishu_subs:
+                    open_id = sub.get("open_id", "")
+                    user_dates = sub.get("dates") or []
+                    if not open_id:
+                        continue
+                    if not user_dates or any(d in released_dates for d in user_dates):
+                        dm_lines = ["## 🔔 你关注的日期有新增配额！\n"]
+                        for (date, office, qtype), old_s, new_s in changes["newly_available"]:
+                            if not user_dates or date in user_dates:
+                                office_name = DEFAULT_OFFICES.get(office, office)
+                                dm_lines.append(f"  • {date}  {office_name}({office})")
+                        dm_lines.append(f"\n📋 [预约办理]({BOOKING_URL}) ｜ 📊 [实时看板]({DASHBOARD_URL})")
+                        dm_text = "\n".join(dm_lines)
+                        try:
+                            if send_feishu_dm(dm_text, app_id, app_secret, open_id):
+                                dm_sent += 1
+                        except Exception as e:
+                            logger.warning("飞书 DM 发送失败 open_id=%s: %s", open_id[:16], e)
+                if dm_sent > 0:
+                    logger.info("飞书 DM 通知: %d/%d", dm_sent, len(feishu_subs))
+                notify_result["feishu_dm"] = dm_sent
+
         # 邮件通知
         smtp_user = os.environ.get("SMTP_USERNAME", "")
         smtp_pass = os.environ.get("SMTP_PASSWORD", "")
@@ -238,40 +266,6 @@ def main():
                         sent_count += 1
                 logger.info("邮件通知: %d/%d", sent_count, len(subscribers))
                 notify_result["email"] = sent_count
-
-        # Feishu DM 按日期过滤通知
-        if app_id and app_secret:
-            feishu_subs = _load_json_encrypted("data/feishu_subs.json")
-            if feishu_subs and isinstance(feishu_subs, list) and feishu_subs:
-                released_dates = {date for (date, _, _), _, _ in changes.get("newly_available", [])}
-                dm_sent = 0
-                for sub in feishu_subs:
-                    open_id = sub.get("open_id", "")
-                    user_dates = sub.get("dates") or []
-                    if not open_id:
-                        continue
-                    # user_dates=[] means all dates
-                    if not user_dates or any(d in released_dates for d in user_dates):
-                        matching = [d for d in released_dates
-                                    if not user_dates or d in user_dates]
-                        # Build personalized DM with only matching dates
-                        dm_lines = ["## 🔔 你关注的日期有新增配额！\n"]
-                        for (date, office, qtype), old_s, new_s in changes["newly_available"]:
-                            if not user_dates or date in user_dates:
-                                office_name = DEFAULT_OFFICES.get(office, office)
-                                dm_lines.append(
-                                    f"  • {date}  {office_name}({office})"
-                                )
-                        dm_lines.append(f"\n📋 [预约办理]({BOOKING_URL}) ｜ 📊 [实时看板]({DASHBOARD_URL})")
-                        dm_text = "\n".join(dm_lines)
-                        try:
-                            if send_feishu_dm(dm_text, app_id, app_secret, open_id):
-                                dm_sent += 1
-                        except Exception as e:
-                            logger.warning("飞书 DM 发送失败 open_id=%s: %s", open_id[:16], e)
-                if dm_sent > 0:
-                    logger.info("飞书 DM 通知: %d/%d", dm_sent, len(feishu_subs))
-                notify_result["feishu_dm"] = dm_sent
 
         # 写日志
         _append_notify_log({
