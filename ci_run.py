@@ -6,6 +6,7 @@ import logging
 import os
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 
 # 确保模块可导入
@@ -203,9 +204,10 @@ def main():
         if app_id and app_secret and chat_ids_raw:
             chat_ids = [c.strip() for c in chat_ids_raw.split(",") if c.strip()]
             ok_all = True
-            for cid in chat_ids:
-                ok = send_feishu_api(message, app_id, app_secret, cid)
-                if not ok: ok_all = False
+            with ThreadPoolExecutor(max_workers=len(chat_ids)) as pool:
+                futures = {pool.submit(send_feishu_api, message, app_id, app_secret, cid): cid for cid in chat_ids}
+                for f in as_completed(futures):
+                    if not f.result(): ok_all = False
             notify_result["feishu"] = "OK" if ok_all else "PARTIAL"
             logger.info("飞书群聊通知: %s (%d群)", notify_result["feishu"], len(chat_ids))
         elif webhook_url:
@@ -220,7 +222,7 @@ def main():
             feishu_subs = _load_json_encrypted("data/feishu_subs.json")
             if feishu_subs and isinstance(feishu_subs, list) and feishu_subs:
                 released_dates = {date for (date, _, _), _, _ in changes.get("newly_available", [])}
-                dm_sent = 0
+                dms_to_send = []
                 for sub in feishu_subs:
                     open_id = sub.get("open_id", "")
                     user_dates = sub.get("dates") or []
@@ -233,12 +235,20 @@ def main():
                                 office_name = DEFAULT_OFFICES.get(office, office)
                                 dm_lines.append(f"  • {date}  {office_name}({office})")
                         dm_lines.append(f"\n📋 [预约办理]({BOOKING_URL}) ｜ 📊 [实时看板]({DASHBOARD_URL})")
-                        dm_text = "\n".join(dm_lines)
+                        dms_to_send.append((open_id, "\n".join(dm_lines)))
+
+                dm_sent = 0
+                if dms_to_send:
+                    def _send_one(oid, text):
                         try:
-                            if send_feishu_dm(dm_text, app_id, app_secret, open_id):
-                                dm_sent += 1
+                            return send_feishu_dm(text, app_id, app_secret, oid)
                         except Exception as e:
-                            logger.warning("飞书 DM 发送失败 open_id=%s: %s", open_id[:16], e)
+                            logger.warning("飞书 DM 发送失败 open_id=%s: %s", oid[:16], e)
+                            return False
+                    with ThreadPoolExecutor(max_workers=min(len(dms_to_send), 5)) as pool:
+                        futures = {pool.submit(_send_one, oid, text): oid for oid, text in dms_to_send}
+                        for f in as_completed(futures):
+                            if f.result(): dm_sent += 1
                 if dm_sent > 0:
                     logger.info("飞书 DM 通知: %d/%d", dm_sent, len(feishu_subs))
                 notify_result["feishu_dm"] = dm_sent
