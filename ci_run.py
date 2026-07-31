@@ -195,15 +195,19 @@ def main():
         print(message)
         _append_run_log(f"ALERT | 新配额放出: {len(changes.get('newly_available',[]))} 个")
 
-        # Feishu 通知
+        # Feishu 群聊广播（支持多群：逗号分隔 chat_id）
         app_id = os.environ.get("FEISHU_APP_ID", "")
         app_secret = os.environ.get("FEISHU_APP_SECRET", "")
-        chat_id = os.environ.get("FEISHU_CHAT_ID", "")
+        chat_ids_raw = os.environ.get("FEISHU_CHAT_ID", "")
         webhook_url = os.environ.get("FEISHU_WEBHOOK_URL", "")
-        if app_id and app_secret and chat_id:
-            ok = send_feishu_api(message, app_id, app_secret, chat_id)
-            notify_result["feishu"] = "OK" if ok else "FAIL"
-            logger.info("飞书通知: %s", notify_result["feishu"])
+        if app_id and app_secret and chat_ids_raw:
+            chat_ids = [c.strip() for c in chat_ids_raw.split(",") if c.strip()]
+            ok_all = True
+            for cid in chat_ids:
+                ok = send_feishu_api(message, app_id, app_secret, cid)
+                if not ok: ok_all = False
+            notify_result["feishu"] = "OK" if ok_all else "PARTIAL"
+            logger.info("飞书群聊通知: %s (%d群)", notify_result["feishu"], len(chat_ids))
         elif webhook_url:
             ok = send_feishu_webhook(webhook_url, message)
             notify_result["feishu"] = "OK" if ok else "FAIL"
