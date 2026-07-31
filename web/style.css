@@ -1,6 +1,41 @@
 /* quota-monitor — HK IMMD Appointment Quota Dashboard */
 /* Brand-neutral, accessible, light/dark compatible */
 
+/* ── Top Banner ───────────────────────────────────────── */
+.top-banner {
+  background: #fef3c7;
+  color: #92400e;
+  padding: 12px 20px;
+  text-align: center;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  position: relative;
+  border-bottom: 2px solid #f59e0b;
+}
+.top-banner a { color: #b45309; font-weight: 600; }
+.top-banner .banner-close {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  cursor: pointer;
+  color: #92400e;
+  opacity: 0.6;
+  padding: 4px 8px;
+  line-height: 1;
+}
+.top-banner .banner-close:hover { opacity: 1; }
+.top-banner.hidden { display: none; }
+
+@media (prefers-color-scheme: dark) {
+  .top-banner { background: #422006; color: #fde68a; border-bottom-color: #d97706; }
+  .top-banner a { color: #fbbf24; }
+  .top-banner .banner-close { color: #fde68a; }
+}
+
 :root {
   --bg: #ffffff;
   --bg-secondary: #f8f9fa;
