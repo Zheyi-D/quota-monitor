@@ -9,6 +9,7 @@
 ### 前置要求
 
 - Python 3.8+
+- Node.js 20+
 - GitHub 账号
 
 ### 安装
@@ -46,21 +47,23 @@ python ci_run.py
 
 | Secret | 说明 | 必填 |
 |--------|------|------|
-| `FEISHU_APP_ID` | 飞书自建应用 App ID | 否 |
-| `FEISHU_APP_SECRET` | 飞书自建应用 App Secret | 否 |
-| `FEISHU_CHAT_ID` | 目标群聊 chat_id | 否 |
+| `FEISHU_APP_ID` | 飞书自建应用 App ID | 是（飞书） |
+| `FEISHU_APP_SECRET` | 飞书自建应用 App Secret | 是（飞书） |
+| `FEISHU_CHAT_ID` | 目标群聊 chat_id | 是（飞书） |
 | `SMTP_USERNAME` | QQ 邮箱地址 | 是（邮件） |
 | `SMTP_PASSWORD` | QQ 邮箱 SMTP 授权码 | 是（邮件） |
 | `ENCRYPTION_KEY` | AES-256 加密密钥 | 是（加密） |
 | `EMAIL_SUBSCRIBERS` | 手动订阅者 JSON 数组 | 否 |
 
-3. 部署 Cloudflare Worker（`workers/subscribe.js`），用于网页自助订阅
+3. 部署 Cloudflare Worker（`workers/subscribe.js`），用于网页自助订阅 + 飞书 DM 订阅 API
 4. Settings → Pages → Source: GitHub Actions
-5. 配置外部定时服务（如 cron-job.org）每 5 分钟触发 `repository_dispatch`
+5. 配置 cron-job.org 定时触发：
+   - `fetch-quota`：每 2 分钟 POST（08:00-22:00）
+   - `feishu-ws`：每 5 小时 POST（维持长连接）
 
 ### Cloudflare Worker
 
-Worker 同时承担 **邮箱自助订阅** 和 **管理员群发消息** 功能，需配置以下环境变量：
+Worker 承担**邮箱订阅/退订**、**飞书 DM 订阅 API**、**管理员群发**三项功能，需配置以下环境变量：
 
 | 变量 | 说明 |
 |------|------|
@@ -80,21 +83,26 @@ Worker 同时承担 **邮箱自助订阅** 和 **管理员群发消息** 功能�
 quota-monitor/
 ├── quota_monitor/          # Python 核心库
 │   ├── core.py             # API 拉取 + 变化检测
-│   ├── notify.py           # 飞书 + 邮件通知
+│   ├── notify.py           # 飞书群聊/私聊 + 邮件通知
 │   ├── state.py            # 状态持久化
 │   └── monitor.py          # CLI 入口
-├── ci_run.py               # CI 入口（配额检测 + 欢迎邮件）
-├── workers/subscribe.js    # Cloudflare Worker（订阅/退订）
+├── ci_run.py               # CI 入口（配额检测 + 通知 + 欢迎邮件）
+├── workers/subscribe.js    # Cloudflare Worker（邮件订阅 + 飞书 DM API + 管理员群发）
+├── feishu-ws/              # 飞书长连接客户端
+│   ├── feishu-ws-client.js # Node.js SDK WebSocket 客户端
+│   └── package.json        # 依赖：@larksuiteoapi/node-sdk
 ├── monitor.py              # 快速启动脚本
 ├── web/                    # GitHub Pages 前端看板
 ├── .github/workflows/      # CI 工作流
-│   ├── fetch.yml           # 配额检测 + 通知
+│   ├── fetch.yml           # 配额检测 + 群聊/邮件/DM 通知
+│   ├── feishu-ws.yml       # 飞书长连接客户端（每 5 小时）
 │   ├── pages.yml           # Pages 部署
 │   └── welcome.yml         # 欢迎邮件
 ├── data/                   # 自动生成的数据
 │   ├── quota.json           # 配额快照
-│   ├── release_log.json     # 放号记录（60 天）
+│   ├── run.log              # CI 运行日志（放号规律数据源）
 │   ├── subscribers.json     # 邮箱订阅者（加密）
+│   ├── feishu_subs.json     # 飞书 DM 订阅者（加密）
 │   └── welcomed.json        # 已发欢迎邮件的订阅者（加密）
 └── config.example.json     # 配置模板
 ```
@@ -104,27 +112,27 @@ quota-monitor/
 ## 🏗 数据流
 
 ```
-cron-job.org (每5分钟 POST)
-       │
-       ▼
-GitHub API (repository_dispatch)
-       │
-       ▼
-GitHub Actions (ci_run.py)
-       │
-       ├──► requests → 入境处公开 API
-       │
-       ├──► detect_changes() — 对比两次快照，检测变化：
-       │       ① 已满/no-quota → 有名额/少量  (newly_available，触发通知)
-       │       ② 有名额 → 已满  (newly_full)
-       │       ③ 新日期进入窗口  (newly_added，不计入通知)
-       │
-       ├──► SHA256 去重检查 — 仅基于 newly_available 指纹
-       │
-       ├──► 飞书群通知 — 自建应用 API (tenant_access_token + IM message)
-       ├──► 邮件通知 — QQ SMTP (smtplib, TLS 587)
-       ├──► 追加放号记录 — data/release_log.json，保留 60 天
-       └──► 导出 quota.json + 部署 GitHub Pages
+cron-job.org
+  ├── 每 2 分钟 POST fetch-quota（08:00-22:00）
+  │     ↓
+  │   GitHub Actions (ci_run.py)
+  │     ├── fetch_snapshot() → 入境处公开 API
+  │     ├── detect_changes() — 对比快照，检测 newly_available
+  │     ├── 飞书群聊广播 → send_feishu_api() (receive_id_type=chat_id)
+  │     ├── 邮件通知 → QQ SMTP (每人一封，含个性化退订链接)
+  │     ├── 飞书私聊 DM → send_feishu_dm() (receive_id_type=open_id)
+  │     │     └── 读 feishu_subs.json → 匹配日期 → 逐人发送
+  │     ├── _append_run_log() → data/run.log (放号规律数据源)
+  │     └── git push → Pages 自动部署
+  │
+  └── 每 5 小时 POST feishu-ws
+        ↓
+      GitHub Actions (feishu-ws-client.js)
+        ├── @larksuiteoapi/node-sdk WSClient → 飞书 WebSocket 长连接
+        ├── 收 im.message.receive_v1 → 解析文字命令/日期
+        ├── 收 card.action.trigger → 处理按钮点击
+        ├── Worker API → 读写 data/feishu_subs.json
+        └── SDK Client → 发私聊卡片回复
 ```
 
 ---
@@ -138,6 +146,7 @@ GitHub Actions (ci_run.py)
 | 配额表格 | 原生 DOM 渲染 | 96天 × 6 办事处全量渲染，CSS Grid 固定首列 |
 | 放号热力图 | 原生 DOM 渲染 | 日 × 小时网格，颜色深浅 = 放号频率，8:00-22:00 |
 | 数据加载 | Fetch API | 从 `data/quota.json` 读取，切 tab 时懒加载 |
+| 放号规律数据 | 解析 `data/run.log` | regex: `ALERT \| 新配额放出: (\d+) 个` |
 | 订阅/退订 | Fetch POST → Worker | 前端表单 → Cloudflare Worker → GitHub API |
 | 管理员群发 | Fetch POST → Worker | admin.html 密码验证 → Worker 调飞书 API 发群消息 |
 | 暗色模式 | `prefers-color-scheme` | CSS 变量自动适配，零 JS |
@@ -151,18 +160,42 @@ GitHub Actions (ci_run.py)
 | `core.py` | `detect_changes()` | 等级值比较：quota-g=1, quota-y=2, quota-r=3, no-quota=4 |
 | `core.py` | `export_web_data()` | 导出 `data/quota.json` 供前端读取 |
 | `notify.py` | `send_feishu_api()` | 飞书 Open API：获取 token → POST 消息卡片到群聊 |
+| `notify.py` | `send_feishu_dm()` | 飞书 Open API：获取 token → POST 消息卡片到私聊 (receive_id_type=open_id) |
 | `notify.py` | `send_email_smtp()` | Python `smtplib` → QQ SMTP，TLS 加密发送 |
-| `notify.py` | `_can_send()` / `_record_sent()` | 频率控制：飞书 10 分钟、邮件 30 分钟最小间隔 |
 | `state.py` | `load_state()` / `save_state()` | 快照持久化，原子写入防损坏 |
-| `ci_run.py` | `_read_notify_marker()` / `_write_notify_marker()` | SHA256 去重标记，通过 GitHub API 读写，避开 git push 不可靠问题 |
+| `ci_run.py` | `_append_run_log()` | 通过 GitHub API 追加 CI 日志到 `data/run.log` |
+
+## 飞书 DM 按日期过滤
+
+feishu-ws-client.js 使用飞书官方 Node.js SDK 的 `WSClient` 建立 WebSocket 长连接，在 GitHub Actions 中持续运行（每 5 小时 cron-job.org 定时重启，timeout 5.5 小时保证无缝衔接）。
+
+### 交互方式
+
+- **接收消息**：`im.message.receive_v1` — 解析文字命令/日期输入
+- **卡片按钮**：`card.action.trigger` — 处理交互卡片按钮点击
+- **发送回复**：SDK `client.im.message.create()`，`receive_id_type=open_id`
+
+### 数据存储
+
+订阅偏好加密存储在 `data/feishu_subs.json`（Worker REST API 读写）：
+
+```json
+[{"open_id": "ou_xxx", "dates": ["08/15/2026", ...], "subscribed_at": "..."}]
+```
+
+- `dates: []` → 全量通知
+- `dates: ["08/15/2026", ...]` → 仅匹配时通知
+
+### CI 分发
+
+`ci_run.py` 检测到 `newly_available` 后，提取放出日期集合，遍历 `feishu_subs.json`，匹配则调用 `send_feishu_dm()` 逐人推送。
 
 ## 邮件系统
 
-- **发送方**：QQ 邮箱 SMTP（`smtp.qq.com:587`），使用授权码认证，非明文密码
+- **发送方**：QQ 邮箱 SMTP（`smtp.qq.com:587`），使用授权码认证
 - **渠道分流**：
   - 订阅确认：CI 首次检测到新订户 → 发 HTML 欢迎邮件 → 标记 `welcomed.json`
   - 配额通知：CI 检测到变化 → 发 HTML 通知邮件（含变化详情 + 二维码）
-  - 本地运行：`monitor.py` 使用 agently-cli 发送，CI 使用 SMTP
 - **格式**：HTML 邮件，含看板/预约/飞书群入口链接、飞书群二维码、退订链接
 - **隐私保护**：每封邮件末尾附带个性化退订链接，无需登录即可退订
 
@@ -170,43 +203,19 @@ GitHub Actions (ci_run.py)
 
 - **算法**：AES-256-GCM（Web Crypto API / Python `cryptography` 库）
 - **密钥**：32 字节随机 base64 密钥，分别存入 GitHub Secrets 和 Cloudflare Worker Variables
-- **加密范围**：`data/subscribers.json`、`data/welcomed.json`
+- **加密范围**：`data/subscribers.json`、`data/welcomed.json`、`data/feishu_subs.json`
 - **格式**：`{"enc": true, "data": "<base64(iv + ciphertext)>"}`
 - **向后兼容**：读取时自动识别明文/密文格式，切换加密无需数据迁移
 
-## 去重机制
-
-为避免同一变化被重复发送多次，系统使用 **SHA256 内容指纹 + GitHub API 标记文件** 实现去重：
-
-```
-检测到配额变化 → 提取变化数据本体 → SHA256("变化内容") → 得到 16 位指纹
-                                                          │
-                              比对 .github/notify_marker ─┤
-                                                          │
-                                相同                       不同
-                                 ↓                         ↓
-                            跳过通知                   发送通知
-                                                    写入新指纹到 notify_marker
-```
-
-**关键设计**：
-- **指纹仅基于 `newly_available`**，而非完整通知消息，避免时间戳导致每次 hash 不同。`newly_added`（新日期）不触发通知
-- **使用 GitHub REST API 读写标记**（`GET/PUT repos/:owner/:repo/contents/.github/notify_marker`），不依赖 `git push`，彻底避开 SSL 连接不稳定导致的推送失败
-- 标记文件存储在 `.github/` 目录下，内容为单行 16 位 hex 指纹
-
 ## 放号规律（Release Trend）
 
-每次 CI 检测到 `newly_available` 变化时，追加一条记录到 `data/release_log.json`：
+CI 检测到 `newly_available` 变化时，通过 GitHub API 追加到 `data/run.log`：
 
-```json
-{"t":"2026-07-30T09:31:00+08:00","count":3,"dates":["08/05/2026","08/06/2026","08/07/2026"]}
+```
+[2026-07-31 11:24:30 BJT] ALERT | 新配额放出: 8 个
 ```
 
-- 仅记录「已满 → 有名额/少量」的真正放号，每日零点自动滚动的新日期不计入
-- 同一次 CI 的所有 `newly_available` 算作一批（`count` = 该批放出日期数）
-- 保留 60 天，预估大小 ~90 KB
-
-前端「📈 放号规律」tab 读取此文件，渲染三个视图：
+前端「📈 放号规律」tab fetch `data/run.log`，用 regex 解析放号批次：
 
 | 视图 | 说明 |
 |------|------|
@@ -214,7 +223,7 @@ GitHub Actions (ci_run.py)
 | 🔥 TOP 3 时段 | 累计放号日期数最多的三个时段 |
 | 📊 热力图 | 日 × 小时（8:00-22:00）网格，颜色深浅 = 放号频率 |
 
-所有渲染纯前端，零 API 依赖，切 tab 时懒加载。
+所有渲染纯前端，零 API 依赖，切 tab 时懒加载。`run.log` 保留最近 200 行。
 
 ## 管理员群发（Admin Messaging）
 
@@ -226,7 +235,8 @@ GitHub Actions (ci_run.py)
 
 | 环境 | 用途 |
 |------|------|
-| GitHub Actions (Ubuntu) | 主 CI：配额检测 + 通知 + 数据导出 + Pages 部署 |
-| Cloudflare Workers | 订阅/退订 API：接收前端请求 → 调 GitHub API 读写文件 |
-| cron-job.org | 外部定时触发器，每 2 分钟 POST → `repository_dispatch`（08:00-22:00） |
+| GitHub Actions (Ubuntu) | fetch-quota: 配额检测 + 通知 + 数据导出 + Pages 部署 |
+| GitHub Actions (Ubuntu) | feishu-ws: 飞书长连接客户端，每 5 小时启动，接收私聊消息 |
+| Cloudflare Workers | 订阅/退订/飞书 DM 订阅 API：接收前端请求 → 调 GitHub API 读写文件 |
+| cron-job.org | 外部定时触发器，每 2 分钟 POST fetch-quota（08:00-22:00）+ 每 5 小时 POST feishu-ws |
 | 本地 Python CLI | 开发者调试：`python monitor.py --once` |
