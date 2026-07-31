@@ -50,6 +50,13 @@ jobs:
             echo "No changes to commit"
           fi
 
+      - name: Trigger Pages deploy
+        run: |
+          curl -s -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/pages.yml/dispatches" \
+            -d '{"ref":"main"}' || echo "Pages trigger skipped"
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
