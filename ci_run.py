@@ -90,6 +90,56 @@ def _append_run_log(line):
             pass
 
 
+def _save_state_remote(state_file, snapshot, state_extra=None):
+    """通过 GitHub API 保存 state.json，不依赖 git push。"""
+    import base64 as _b64, time as _time
+
+    serializable_snapshot = {}
+    for key, status in snapshot.items():
+        serializable_snapshot["|".join(key)] = status
+
+    state = {
+        "version": 1,
+        "last_snapshot": serializable_snapshot,
+        "last_snapshot_time": _time.strftime(
+            "%Y-%m-%dT%H:%M:%S", _time.gmtime(_time.time() + 8 * 3600)
+        ),
+    }
+    if state_extra:
+        state.update(state_extra)
+
+    content = json.dumps(state, ensure_ascii=False, indent=2)
+    content_b64 = _b64.b64encode(content.encode()).decode()
+
+    try:
+        repo = os.environ.get("GITHUB_REPOSITORY", "")
+        api_url = f"repos/{repo}/contents/{state_file}"
+
+        r = subprocess.run(["gh", "api", api_url], capture_output=True, text=True, timeout=10)
+        sha = None
+        if r.returncode == 0:
+            sha = json.loads(r.stdout).get("sha")
+
+        body = {"message": "Update state", "content": content_b64}
+        if sha:
+            body["sha"] = sha
+
+        result = subprocess.run(
+            ["gh", "api", "-X", "PUT", api_url, "--input", "-"],
+            input=json.dumps(body), capture_output=True, text=True, timeout=15,
+        )
+        if result.returncode == 0:
+            logger.debug("state.json 已通过 API 写入 GitHub")
+        else:
+            logger.debug("state.json API 写入失败: %s", result.stderr[:100])
+    except Exception as e:
+        logger.debug("state.json API 异常: %s", e)
+
+    # 始终写本地文件
+    with open(state_file, "w", encoding="utf-8") as f:
+        f.write(content)
+
+
 def _load_json_encrypted(path):
     """读取 JSON 文件，支持加密格式和明文格式（向后兼容）。"""
     if not os.path.exists(path):
@@ -301,8 +351,8 @@ def main():
             "summary": "无变化"
         })
 
-    # ── 5. 保存状态 ──
-    save_state("state.json", snapshot)
+    # ── 5. 保存状态（通过 GitHub API 直接写入，避免 git push 不可靠导致重复通知）──
+    _save_state_remote("state.json", snapshot)
 
     # ── 6. 一次性初始化 welcomed.json ──
     _init_welcomed()
