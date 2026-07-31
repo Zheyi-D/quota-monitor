@@ -402,10 +402,16 @@ function renderHeatmap(pd) {
     if (slot < 0 || slot >= N) continue;
     cells[di * N + slot] = (cells[di * N + slot] || 0) + b.count;
   }
+  // Only show dates that have data (skip empty rows from before recording started)
+  const activeSet = new Set();
+  for (let i = 0; i < keys.length; i++) {
+    for (let j = 0; j < N; j++) { if (cells[i * N + j]) { activeSet.add(i); break; } }
+  }
   document.getElementById("tmHead").innerHTML =
     `<tr><th>日期 \\ 时间</th>${HOURS_TREND.map(h => `<th>${h}</th>`).join("")}</tr>`;
   let bd = "";
   for (let i = 0; i < keys.length; i++) {
+    if (!activeSet.has(i)) continue;
     const p = keys[i].split("/"), dow = DAYS_TREND[dts[i].getDay()];
     bd += `<tr><td>${parseInt(p[1])}/${parseInt(p[2])} 周${dow}</td>`;
     for (let j = 0; j < N; j++) {
