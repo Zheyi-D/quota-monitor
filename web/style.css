@@ -3,16 +3,16 @@
 
 /* ── Top Banner ───────────────────────────────────────── */
 .top-banner {
-  background: #fef3c7;
-  color: #92400e;
-  padding: 12px 20px;
+  background: #dcfce7;
+  color: #166534;
+  padding: 10px 20px;
   text-align: center;
-  font-size: 0.92rem;
-  line-height: 1.6;
+  font-size: 0.9rem;
+  line-height: 1.7;
   position: relative;
-  border-bottom: 2px solid #f59e0b;
+  border-bottom: 2px solid #22c55e;
 }
-.top-banner a { color: #b45309; font-weight: 600; }
+.top-banner a { color: #15803d; font-weight: 600; }
 .top-banner .banner-close {
   position: absolute;
   right: 14px;
@@ -22,7 +22,7 @@
   border: none;
   font-size: 1.4rem;
   cursor: pointer;
-  color: #92400e;
+  color: #166534;
   opacity: 0.6;
   padding: 4px 8px;
   line-height: 1;
@@ -31,9 +31,9 @@
 .top-banner.hidden { display: none; }
 
 @media (prefers-color-scheme: dark) {
-  .top-banner { background: #422006; color: #fde68a; border-bottom-color: #d97706; }
-  .top-banner a { color: #fbbf24; }
-  .top-banner .banner-close { color: #fde68a; }
+  .top-banner { background: #052e16; color: #bbf7d0; border-bottom-color: #22c55e; }
+  .top-banner a { color: #86efac; }
+  .top-banner .banner-close { color: #bbf7d0; }
 }
 
 :root {
