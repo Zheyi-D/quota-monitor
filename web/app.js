@@ -333,13 +333,20 @@ let batchesTrend = [];
 
 async function initTrend() {
   try {
-    const resp = await fetch("data/release_log.json");
+    // Parse run.log: "[2026-07-31 11:24:30 BJT] ALERT | 新配额放出: 8 个"
+    const resp = await fetch("data/run.log");
     if (resp.ok) {
-      const raw = await resp.json();
-      if (Array.isArray(raw)) {
-        batchesTrend = raw.map(e => ({ t: new Date(e.t), count: e.count, dates: e.dates }));
-        batchesTrend.sort((a, b) => b.t - a.t);
+      const text = await resp.text();
+      const re = /\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) BJT\] ALERT \| 新配额放出: (\d+) 个/g;
+      let m;
+      while ((m = re.exec(text)) !== null) {
+        batchesTrend.push({
+          t: new Date(m[1] + "+08:00"),
+          count: parseInt(m[2]),
+          dates: []  // run.log doesn't store individual dates, not needed for heatmap
+        });
       }
+      batchesTrend.sort((a, b) => b.t - a.t);
     }
   } catch (_) { /* file may not exist yet */ }
 

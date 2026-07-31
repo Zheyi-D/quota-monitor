@@ -37,6 +37,7 @@ jobs:
           cp data/quota.json _site/data/
           if [ -f data/last_update.json ]; then cp data/last_update.json _site/data/; fi
           if [ -f data/release_log.json ]; then cp data/release_log.json _site/data/; fi
+          if [ -f data/run.log ]; then cp data/run.log _site/data/; fi
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
