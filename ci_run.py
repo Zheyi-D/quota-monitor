@@ -153,6 +153,18 @@ def _append_notify_log(entry):
 RELEASE_LOG = "data/release_log.json"
 
 
+def _bj_now():
+    """返回北京时间 datetime，带 +08:00 时区信息。"""
+    import time as _time
+    bj_ts = _time.time() + 8 * 3600  # UTC+8
+    bj_t = _time.gmtime(bj_ts)
+    # 构造带时区的 datetime
+    from datetime import timezone, timedelta
+    tz_bj = timezone(timedelta(hours=8))
+    dt_utc = datetime(*bj_t[:6])
+    return dt_utc.replace(tzinfo=timezone.utc).astimezone(tz_bj)
+
+
 def _append_release_log(newly_available):
     """通过 GitHub API 追加放号记录到 release_log.json，保留 60 天。"""
     import base64
@@ -169,7 +181,7 @@ def _append_release_log(newly_available):
     unique_dates = sorted(set(all_dates), key=lambda d: tuple(map(int, d.split("/"))))
 
     entry = {
-        "t": datetime.now().replace(microsecond=0).isoformat(),
+        "t": _bj_now().isoformat(),
         "count": len(unique_dates),
         "dates": unique_dates,
     }
