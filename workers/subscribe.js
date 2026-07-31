@@ -231,7 +231,7 @@ export default {
               receive_id: chatId,
               msg_type: "interactive",
               content: JSON.stringify({
-                header: { title: { content: "📢 群主消息", tag: "plain_text" }, template: "blue" },
+                header: { title: { content: "📢 系统消息", tag: "plain_text" }, template: "blue" },
                 elements: [{ tag: "markdown", content: text }],
               }),
             }),
