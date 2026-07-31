@@ -275,62 +275,62 @@ def main():
         _append_run_log(f"ALERT | 新配额放出: {len(changes.get('newly_available',[]))} 个")
 
         # Feishu 通知
-            app_id = os.environ.get("FEISHU_APP_ID", "")
-            app_secret = os.environ.get("FEISHU_APP_SECRET", "")
-            chat_id = os.environ.get("FEISHU_CHAT_ID", "")
-            webhook_url = os.environ.get("FEISHU_WEBHOOK_URL", "")
-            if app_id and app_secret and chat_id:
-                ok = send_feishu_api(message, app_id, app_secret, chat_id)
-                notify_result["feishu"] = "OK" if ok else "FAIL"
-                logger.info("飞书通知: %s", notify_result["feishu"])
-            elif webhook_url:
-                ok = send_feishu_webhook(webhook_url, message)
-                notify_result["feishu"] = "OK" if ok else "FAIL"
-                logger.info("飞书通知: %s", notify_result["feishu"])
-            else:
-                notify_result["feishu"] = "skipped"
+        app_id = os.environ.get("FEISHU_APP_ID", "")
+        app_secret = os.environ.get("FEISHU_APP_SECRET", "")
+        chat_id = os.environ.get("FEISHU_CHAT_ID", "")
+        webhook_url = os.environ.get("FEISHU_WEBHOOK_URL", "")
+        if app_id and app_secret and chat_id:
+            ok = send_feishu_api(message, app_id, app_secret, chat_id)
+            notify_result["feishu"] = "OK" if ok else "FAIL"
+            logger.info("飞书通知: %s", notify_result["feishu"])
+        elif webhook_url:
+            ok = send_feishu_webhook(webhook_url, message)
+            notify_result["feishu"] = "OK" if ok else "FAIL"
+            logger.info("飞书通知: %s", notify_result["feishu"])
+        else:
+            notify_result["feishu"] = "skipped"
 
-            # 邮件通知
-            smtp_user = os.environ.get("SMTP_USERNAME", "")
-            smtp_pass = os.environ.get("SMTP_PASSWORD", "")
-            if smtp_user and smtp_pass:
-                subscribers = []
-                secret_subs = os.environ.get("EMAIL_SUBSCRIBERS", "")
-                if secret_subs:
-                    try:
-                        subscribers.extend(json.loads(secret_subs))
-                    except json.JSONDecodeError:
-                        pass
-                subs_file = "data/subscribers.json"
-                web_subs = _load_json_encrypted(subs_file)
-                if web_subs and isinstance(web_subs, list):
-                    for addr in web_subs:
-                        if addr not in subscribers:
-                            subscribers.append(addr)
-                if subscribers:
-                    bj_now = _time.strftime("%m/%d %H:%M", _time.gmtime(_time.time() + 8 * 3600))
-                    subject = f"[配额监控] {bj_now} 有变化"
-                    sent_count = 0
-                    for addr in subscribers:
-                        email_body = _email_html("🔔 新预约配额放出！", message) + _email_footer(addr)
-                        if send_email_smtp(addr, subject, email_body, smtp_user, smtp_pass):
-                            sent_count += 1
-                    logger.info("邮件通知: %d/%d", sent_count, len(subscribers))
-                    notify_result["email"] = sent_count
+        # 邮件通知
+        smtp_user = os.environ.get("SMTP_USERNAME", "")
+        smtp_pass = os.environ.get("SMTP_PASSWORD", "")
+        if smtp_user and smtp_pass:
+            subscribers = []
+            secret_subs = os.environ.get("EMAIL_SUBSCRIBERS", "")
+            if secret_subs:
+                try:
+                    subscribers.extend(json.loads(secret_subs))
+                except json.JSONDecodeError:
+                    pass
+            subs_file = "data/subscribers.json"
+            web_subs = _load_json_encrypted(subs_file)
+            if web_subs and isinstance(web_subs, list):
+                for addr in web_subs:
+                    if addr not in subscribers:
+                        subscribers.append(addr)
+            if subscribers:
+                bj_now = _time.strftime("%m/%d %H:%M", _time.gmtime(_time.time() + 8 * 3600))
+                subject = f"[配额监控] {bj_now} 有变化"
+                sent_count = 0
+                for addr in subscribers:
+                    email_body = _email_html("🔔 新预约配额放出！", message) + _email_footer(addr)
+                    if send_email_smtp(addr, subject, email_body, smtp_user, smtp_pass):
+                        sent_count += 1
+                logger.info("邮件通知: %d/%d", sent_count, len(subscribers))
+                notify_result["email"] = sent_count
 
-            # 写日志
-            _append_notify_log({
-                "time": datetime.now().isoformat(),
-                "event": "quota_change",
-                "changes": len(changes.get("newly_available", [])),
-                "feishu": notify_result["feishu"],
-                "email": notify_result["email"],
-                "summary": f"配额变化: {len(changes.get('newly_available',[]))} 个日期"
-            })
+        # 写日志
+        _append_notify_log({
+            "time": datetime.now().isoformat(),
+            "event": "quota_change",
+            "changes": len(changes.get("newly_available", [])),
+            "feishu": notify_result["feishu"],
+            "email": notify_result["email"],
+            "summary": f"配额变化: {len(changes.get('newly_available',[]))} 个日期"
+        })
 
-            # 记录放号到 release_log.json（仅 newly_available，忽略自动滚动的新日期）
-            if changes.get("newly_available"):
-                _append_release_log(changes["newly_available"])
+        # 记录放号到 release_log.json（仅 newly_available，忽略自动滚动的新日期）
+        if changes.get("newly_available"):
+            _append_release_log(changes["newly_available"])
 
     else:
         logger.info("配额状态无变化")
