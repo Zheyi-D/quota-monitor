@@ -451,22 +451,21 @@ const dispatcher = new EventDispatcher({}).register({
 
   "card.action.trigger": async (data) => {
     try {
-      console.log("🎯 card.action.trigger received:", JSON.stringify(data).slice(0, 500));
       const operator = data.operator || {};
-      const openId = (operator.operator_id && operator.operator_id.open_id)
-                  || data.open_id || "";
-      const actionValue = (data.action && data.action.value) || "";
-      console.log(`🎯 openId=${openId}, action=${actionValue}`);
-
-      if (!openId || !actionValue) {
-        console.log("⚠️  missing openId or actionValue");
-        return { toast: { type: "error", content: "参数缺失" } };
+      const openId = operator.open_id || "";
+      let actionValue = (data.action && data.action.value) || "";
+      // Feishu may double-quote the value: "\"my_subs\"" -> "my_subs"
+      if (typeof actionValue === "string" && actionValue.startsWith('"')) {
+        try { actionValue = JSON.parse(actionValue); } catch {}
       }
+      console.log(`🎯 card.action: openId=${openId}, action=${actionValue}`);
+
+      if (!openId || !actionValue) return { toast: { type: "error", content: "参数缺失" } };
 
       await handleAction(openId, actionValue);
       return { toast: { type: "success", content: "ok" } };
     } catch (e) {
-      console.error("handle action error:", e.message);
+      console.error("card action error:", e.message);
       return { toast: { type: "error", content: e.message } };
     }
   },
