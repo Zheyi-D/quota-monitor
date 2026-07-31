@@ -165,6 +165,30 @@ cron-job.org
 | `state.py` | `load_state()` / `save_state()` | 快照持久化，原子写入防损坏 |
 | `ci_run.py` | `_append_run_log()` | 通过 GitHub API 追加 CI 日志到 `data/run.log` |
 
+## 通知推送流程
+
+CI 检测到 `newly_available` 后，按以下顺序并行化推送：
+
+```
+detect_changes() → has_significant_change() → format_changes()
+
+  ├─ 1. 飞书群聊广播 → ThreadPoolExecutor 并行发送（多群同时，逗号分隔 FEISHU_CHAT_ID）
+  │    └─ send_feishu_api() → receive_id_type=chat_id, msg_type=interactive
+
+  ├─ 2. 飞书私聊 DM → ThreadPoolExecutor 并行发送（最多 5 并发）
+  │    ├─ 读 data/feishu_subs.json → 提取 released_dates
+  │    ├─ 遍历订阅者 → dates=[] 全量匹配 或 dates 与 released_dates 交集
+  │    └─ send_feishu_dm() → receive_id_type=open_id, msg_type=interactive
+
+  └─ 3. 邮件通知 → 逐封串行发送（SMTP 批量为避免被拦截，每封间隔 2s）
+       └─ send_email_smtp() → QQ SMTP TLS 587
+```
+
+**设计要点**：
+- DM 放在邮件**之前**，避免被 46+ 封 SMTP 邮件阻塞 20-30 秒
+- 群聊和 DM 各自使用 `ThreadPoolExecutor` 并行，几乎同时抵达
+- 单个群/DM 发送失败不中止其余发送
+
 ## 飞书 DM 按日期过滤
 
 feishu-ws-client.js 使用飞书官方 Node.js SDK 的 `WSClient` 建立 WebSocket 长连接，在 GitHub Actions 中持续运行（每 5 小时 cron-job.org 定时重启，timeout 5.5 小时保证无缝衔接）。
@@ -228,6 +252,8 @@ CI 检测到 `newly_available` 变化时，通过 GitHub API 追加到 `data/run
 ## 管理员群发（Admin Messaging）
 
 `web/admin.html` — 密码保护的独立页面，管理员登录后可通过飞书机器人向群聊发送消息。密码验证基于 Cloudflare Worker `ADMIN_PASSWORD` 环境变量，24 小时内无需重复输入。
+
+支持多群并发发送：`FEISHU_CHAT_ID` 支持逗号分隔多个群 ID，Worker 通过 `Promise.all` 并行推送到所有群。
 
 ---
 
