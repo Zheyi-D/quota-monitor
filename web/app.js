@@ -354,34 +354,51 @@ async function initTrend() {
   }));
 }
 
+function fmtTrendTime(ts) {
+  // ts = Date object (北京时间)
+  const bj = new Date(ts.toLocaleString("en-US", { timeZone: "Asia/Shanghai" }));
+  const y = bj.getFullYear();
+  const m = String(bj.getMonth() + 1).padStart(2, "0");
+  const d = String(bj.getDate()).padStart(2, "0");
+  const h = String(bj.getHours()).padStart(2, "0");
+  const min = String(bj.getMinutes()).padStart(2, "0");
+  return `${y}/${m}/${d} ${h}:${min}`;
+}
+
 function updateCountdown() {
   document.getElementById("tcVal").textContent =
-    batchesTrend.length > 0
-      ? batchesTrend[0].t.toLocaleDateString("zh-CN") + " " + batchesTrend[0].t.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })
-      : "暂无记录";
+    batchesTrend.length > 0 ? fmtTrendTime(batchesTrend[0].t) : "暂无记录";
+}
+
+function fmtDate(ts) {
+  const bj = new Date(ts.toLocaleString("en-US", { timeZone: "Asia/Shanghai" }));
+  return `${bj.getFullYear()}/${String(bj.getMonth()+1).padStart(2,"0")}/${String(bj.getDate()).padStart(2,"0")}`;
 }
 
 function renderHeatmap(pd) {
-  const N = HOURS_TREND.length; // 15 hours (8-22)
+  const N = HOURS_TREND.length;
   if (batchesTrend.length === 0) {
     document.getElementById("tmHead").innerHTML = "";
     document.getElementById("tmBody").innerHTML = `<tr><td colspan="${N+1}" style="text-align:center;padding:48px 16px;color:var(--text2);font-size:0.9rem">📊 数据收集中，放号规律将在检测到配额变化后自动生成<br><small style="color:var(--text2);opacity:0.7">系统每 2 分钟扫描一次（08:00-22:00）</small></td></tr>`;
     return;
   }
 
-  const now = new Date();
+  const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Shanghai" }));
   const cutoff = new Date(now - pd * 86400000);
   const keys = [], dts = [];
   for (let d = new Date(cutoff); d <= now; d.setDate(d.getDate() + 1)) {
-    if (d.getDay() !== 0) { keys.push(d.toLocaleDateString("zh-CN")); dts.push(new Date(d)); }
+    if (d.getDay() !== 0) { keys.push(fmtDate(d)); dts.push(new Date(d)); }
+  }
+  function bjHour(ts) {
+    return new Date(ts.toLocaleString("en-US", { timeZone: "Asia/Shanghai" })).getHours();
   }
   const cells = {};
   for (const b of batchesTrend) {
     if (b.t < cutoff) continue;
-    const dk = b.t.toLocaleDateString("zh-CN");
+    const dk = fmtDate(b.t);
     const di = keys.indexOf(dk); if (di < 0) continue;
-    const h = b.t.getHours();
-    const slot = h - 8; // 8→0, 9→1, ..., 22→14
+    const h = bjHour(b.t);
+    const slot = h - 8;
     if (slot < 0 || slot >= N) continue;
     cells[di * N + slot] = (cells[di * N + slot] || 0) + b.count;
   }
@@ -390,7 +407,7 @@ function renderHeatmap(pd) {
   let bd = "";
   for (let i = 0; i < keys.length; i++) {
     const p = keys[i].split("/"), dow = DAYS_TREND[dts[i].getDay()];
-    bd += `<tr><td>${p[1]}/${p[2]} 周${dow}</td>`;
+    bd += `<tr><td>${parseInt(p[1])}/${parseInt(p[2])} 周${dow}</td>`;
     for (let j = 0; j < N; j++) {
       const v = cells[i * N + j] || 0;
       let c = "v0"; if (v >= 10) c = "v5"; else if (v >= 7) c = "v4"; else if (v >= 4) c = "v3"; else if (v >= 2) c = "v2"; else if (v >= 1) c = "v1";
@@ -401,7 +418,7 @@ function renderHeatmap(pd) {
   document.getElementById("tmBody").innerHTML = bd;
 
   const hc = {}; for (const h of HOURS_TREND) hc[h] = 0;
-  for (const b of batchesTrend) { const h = b.t.getHours(); if (h in hc) hc[h] += b.count; }
+  for (const b of batchesTrend) { const h = bjHour(b.t); if (h in hc) hc[h] += b.count; }
   const ranked = Object.entries(hc).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 3);
   document.getElementById("top3List").innerHTML = ranked.map(([h, v], i) =>
     `<li><span><span class="r">${["\u{1F947}", "\u{1F948}", "\u{1F949}"][i]}</span><span class="h">${String(h).padStart(2, "0")}:00~${String(h).padStart(2, "0")}:59</span></span><span class="c">${v} 个</span></li>`
