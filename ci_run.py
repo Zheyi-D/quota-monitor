@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """CI 入口脚本 — 供 GitHub Actions 调用，负责：拉取 API → 检测变化 → 通知 → 导出数据。"""
 
-import hashlib
 import json
 import logging
 import os
@@ -134,61 +133,6 @@ def _save_json_encrypted(path, data):
             json.dump(data, f, ensure_ascii=False)
 
 
-NOTIFY_MARKER = ".github/notify_marker"
-
-def _read_notify_marker():
-    """用 GitHub API 读取去重标记（绕过 git push SSL 问题）。"""
-    try:
-        result = subprocess.run(
-            ["gh", "api", f"repos/{os.environ.get('GITHUB_REPOSITORY','')}/contents/{NOTIFY_MARKER}"],
-            capture_output=True, text=True, timeout=15,
-        )
-        if result.returncode != 0:
-            logger.debug("读取 notify_marker 失败 (rc=%d): %s", result.returncode, result.stderr[:200])
-            return ""
-        data = json.loads(result.stdout)
-        import base64
-        return base64.b64decode(data["content"]).decode().strip()
-    except Exception as e:
-        logger.debug("读取 notify_marker 异常: %s", e)
-        return ""
-
-def _write_notify_marker(hash_val):
-    """用 GitHub API 写入去重标记。"""
-    import base64
-    try:
-        repo = os.environ.get("GITHUB_REPOSITORY", "")
-        api_url = f"repos/{repo}/contents/{NOTIFY_MARKER}"
-
-        # 先读已有 sha（如存在）
-        sha = None
-        try:
-            r = subprocess.run(["gh", "api", api_url], capture_output=True, text=True, timeout=10)
-            if r.returncode == 0:
-                sha = json.loads(r.stdout).get("sha")
-        except Exception:
-            pass
-
-        content_b64 = base64.b64encode(hash_val.encode()).decode()
-        body = {"message": "update notify marker", "content": content_b64}
-        if sha:
-            body["sha"] = sha
-
-        result = subprocess.run(
-            ["gh", "api", "-X", "PUT", api_url, "--input", "-"],
-            input=json.dumps(body), capture_output=True, text=True, timeout=15,
-        )
-        if result.returncode != 0:
-            logger.warning("写入 notify_marker 失败: %s", result.stderr[:200])
-    except Exception as e:
-        logger.debug("写入 notify_marker 异常: %s", e)
-
-
-def _hash_message(msg):
-    """生成消息内容的 SHA256 指纹用于去重。"""
-    return hashlib.sha256(msg.encode()).hexdigest()[:16]
-
-
 def _append_notify_log(entry):
     """追加一条通知日志。"""
     logs = []
@@ -314,27 +258,11 @@ def main():
         })
     elif has_significant_change(changes):
         message = format_changes(changes, DEFAULT_OFFICES)
-        # 用变化内容生成 hash（不含时间戳）
-        core_data = json.dumps(changes.get("newly_available", []), sort_keys=True)
-        change_hash = _hash_message(core_data)
+        logger.info("检测到配额变化！")
+        print(message)
+        _append_run_log(f"ALERT | 新配额放出: {len(changes.get('newly_available',[]))} 个")
 
-        # 去重：通过 GitHub API 读取上次通知的指纹
-        last_hash = _read_notify_marker()
-
-        if change_hash == last_hash:
-            logger.info("检测到配额变化但内容与上次相同，跳过通知")
-            _append_run_log("SKIP | 配额变化与上次相同，跳过通知")
-            _append_notify_log({
-                "time": datetime.now().isoformat(),
-                "event": "duplicate_skipped",
-                "summary": "重复变化，跳过通知"
-            })
-        else:
-            logger.info("检测到配额变化！")
-            print(message)
-            _append_run_log(f"ALERT | 新配额放出: {len(changes.get('newly_available',[]))} 个")
-
-            # Feishu 通知
+        # Feishu 通知
             app_id = os.environ.get("FEISHU_APP_ID", "")
             app_secret = os.environ.get("FEISHU_APP_SECRET", "")
             chat_id = os.environ.get("FEISHU_CHAT_ID", "")
@@ -392,8 +320,6 @@ def main():
             if changes.get("newly_available"):
                 _append_release_log(changes["newly_available"])
 
-            # 通过 GitHub API 写入去重标记（不依赖 git push）
-            _write_notify_marker(change_hash)
     else:
         logger.info("配额状态无变化")
         _append_run_log("OK | 配额状态无变化")
