@@ -210,17 +210,18 @@ RELEASE_LOG = "data/release_log.json"
 
 
 def _append_release_log(newly_available):
-    """追加放号记录到 release_log.json，保留 60 天。"""
+    """通过 GitHub API 追加放号记录到 release_log.json，保留 60 天。"""
+    import base64
+
     # 提取本批次放出的日期
     all_dates = []
     for (date, office, qtype), old_s, new_s in newly_available:
-        if qtype == "R":  # 只记录一般服务时段
+        if qtype == "R":
             all_dates.append(date)
 
     if not all_dates:
         return
 
-    # 去重（同一日期只算一次）
     unique_dates = sorted(set(all_dates), key=lambda d: tuple(map(int, d.split("/"))))
 
     entry = {
@@ -229,24 +230,47 @@ def _append_release_log(newly_available):
         "dates": unique_dates,
     }
 
-    logs = []
-    if os.path.exists(RELEASE_LOG):
-        try:
-            with open(RELEASE_LOG) as f:
-                logs = json.load(f)
-        except (json.JSONDecodeError, IOError):
+    try:
+        repo = os.environ.get("GITHUB_REPOSITORY", "")
+        api_url = f"repos/{repo}/contents/{RELEASE_LOG}"
+
+        # 1. 读取已有日志
+        logs = []
+        sha = None
+        r = subprocess.run(["gh", "api", api_url], capture_output=True, text=True, timeout=10)
+        if r.returncode == 0:
+            data = json.loads(r.stdout)
+            existing = base64.b64decode(data["content"]).decode()
+            logs = json.loads(existing) if existing.strip() else []
+            sha = data.get("sha")
+        elif "Not Found" not in (r.stderr or ""):
+            logger.debug("读取 release_log 失败: %s", r.stderr[:100])
+
+        if not isinstance(logs, list):
             logs = []
 
-    logs.insert(0, entry)
+        # 2. 插入新记录，保留 60 天
+        logs.insert(0, entry)
+        cutoff = datetime.now().replace(microsecond=0) - timedelta(days=60)
+        logs = [e for e in logs if datetime.fromisoformat(e["t"]) > cutoff]
 
-    # 保留 60 天
-    cutoff = datetime.now().replace(microsecond=0) - timedelta(days=60)
-    logs = [e for e in logs if datetime.fromisoformat(e["t"]) > cutoff]
+        # 3. 写回
+        content_b64 = base64.b64encode(json.dumps(logs, ensure_ascii=False).encode()).decode()
+        body = {"message": "Update release log", "content": content_b64}
+        if sha:
+            body["sha"] = sha
 
-    with open(RELEASE_LOG, "w") as f:
-        json.dump(logs, f, ensure_ascii=False)
+        result = subprocess.run(
+            ["gh", "api", "-X", "PUT", api_url, "--input", "-"],
+            input=json.dumps(body), capture_output=True, text=True, timeout=15,
+        )
+        if result.returncode == 0:
+            logger.info("放号记录已追加: %d 个日期 (via API)", len(unique_dates))
+        else:
+            logger.warning("写入 release_log 失败: %s", result.stderr[:200])
 
-    logger.info("放号记录已追加: %d 个日期", len(unique_dates))
+    except Exception as e:
+        logger.warning("release_log API 异常: %s", e)
 
 
 def main():
