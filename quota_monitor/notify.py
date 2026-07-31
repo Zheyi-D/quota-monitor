@@ -133,6 +133,72 @@ def send_feishu_api(text, app_id=None, app_secret=None, chat_id=None,
         return False
 
 
+def send_feishu_dm(text, app_id, app_secret, open_id, title="🔔 预约配额通知"):
+    """通过飞书 API 发送私聊消息卡片到用户（DM）。
+
+    Args:
+        text: 消息正文（Markdown）
+        app_id: 飞书应用 App ID
+        app_secret: 飞书应用 App Secret
+        open_id: 收件人 open_id（ou_xxx）
+        title: 卡片标题
+
+    Returns:
+        bool: 是否发送成功
+    """
+    if not all([app_id, app_secret, open_id]):
+        logger.warning("飞书 DM 参数不完整，跳过")
+        return False
+
+    token = _get_tenant_access_token(app_id, app_secret)
+    if not token:
+        return False
+
+    payload = {
+        "receive_id": open_id,
+        "msg_type": "interactive",
+        "content": json.dumps({
+            "header": {
+                "title": {"content": title, "tag": "plain_text"},
+                "template": "green",
+            },
+            "elements": [
+                {"tag": "markdown", "content": text},
+            ],
+        }),
+    }
+
+    try:
+        resp = requests.post(
+            FEISHU_MSG_URL,
+            params={"receive_id_type": "open_id"},
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+            timeout=15,
+        )
+        if resp.status_code == 200:
+            body = resp.json()
+            if body.get("code") == 0:
+                logger.info("飞书 DM 发送成功 (open_id=%s)", open_id[:16])
+                return True
+            else:
+                logger.error("飞书 DM 返回错误: code=%d, msg=%s",
+                             body.get("code"), body.get("msg"))
+                return False
+        else:
+            logger.error("飞书 DM HTTP %d: %s", resp.status_code, resp.text[:200])
+            return False
+    except requests.Timeout:
+        logger.error("飞书 DM 请求超时")
+        return False
+    except Exception as e:
+        logger.error("飞书 DM 异常: %s", e)
+        return False
+
+
 def send_feishu_webhook(webhook_url, text, title="🔔 香港入境处预约配额监控"):
     """通过飞书 Webhook 发送消息卡片到群聊（群自定义机器人）。
 

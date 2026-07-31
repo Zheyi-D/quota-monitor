@@ -1,0 +1,30 @@
+name: Feishu WebSocket Client
+# 飞书长连接客户端 — 每 5 小时启动一次
+# 使用飞书官方 Node.js SDK @larksuiteoapi/node-sdk
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "4 */5 * * *"
+
+jobs:
+  ws-client:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: cd feishu-ws && npm install
+
+      - name: Run WebSocket client
+        run: cd feishu-ws && node feishu-ws-client.js
+        env:
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          WORKER_URL: https://quota-monitor.deng-zheyi.workers.dev

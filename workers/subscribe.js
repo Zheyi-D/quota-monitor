@@ -1,5 +1,5 @@
 /**
- * quota-monitor Worker v9 — 订阅 + 退订 + AES 加密存储
+ * quota-monitor Worker v10 — 邮件订阅/退订 + 管理员群发 + 飞书 DM 订阅 API
  */
 
 const CORS = {
@@ -22,7 +22,7 @@ async function fetchWithTimeout(url, opts, ms) {
   finally { clearTimeout(t); }
 }
 
-// ── AES-GCM Encryption ──
+// ── AES-GCM Encryption ───────────────────────────────────────────────
 
 async function getKey(env) {
   const raw = Uint8Array.from(atob(env.ENCRYPTION_KEY), c => c.charCodeAt(0));
@@ -40,7 +40,7 @@ async function encryptData(key, plaintext) {
 }
 
 async function decryptData(key, data) {
-  if (!data || !data.enc) return data;  // plain JSON (backward compat)
+  if (!data || !data.enc) return data;
   const akey = key;
   const buf = new Uint8Array(atob(data.data).split("").map(c => c.charCodeAt(0)));
   const iv = buf.slice(0, 12);
@@ -49,7 +49,7 @@ async function decryptData(key, data) {
   return JSON.parse(new TextDecoder().decode(decrypted));
 }
 
-// ── GitHub Helpers ──
+// ── GitHub Helpers ────────────────────────────────────────────────────
 
 async function readJSON(env, path) {
   const headers = {
@@ -67,7 +67,6 @@ async function readJSON(env, path) {
   let decoded;
   try {
     const wrapper = JSON.parse(atob(d.content));
-    // 如果是加密数据，解密
     if (wrapper.enc && env.ENCRYPTION_KEY) {
       const key = await getKey(env);
       decoded = await decryptData(key, wrapper);
@@ -75,7 +74,6 @@ async function readJSON(env, path) {
       decoded = wrapper;
     }
   } catch {
-    // 旧格式明文
     try { decoded = JSON.parse(atob(d.content)); } catch { decoded = []; }
   }
   return { raw: decoded, sha: d.sha };
@@ -90,7 +88,6 @@ async function writeJSON(env, path, data, sha, commitMsg) {
   };
   const url = `https://api.github.com/repos/${env.GITHUB_REPO}/contents/${path}`;
 
-  // 加密
   let contentObj;
   if (env.ENCRYPTION_KEY) {
     const key = await getKey(env);
@@ -109,13 +106,19 @@ async function writeJSON(env, path, data, sha, commitMsg) {
     body: JSON.stringify(body),
   }, 10000);
 
-  if (!resp.ok) throw new Error(`write ${path}: ${resp.status}`);
+  if (!resp.ok) throw new Error(`write ${path}: ${resp.status} ${await resp.text()}`);
 }
 
-// ── Main Handler ──
+// ── Feishu API Constants (used by admin-send) ────────────────────────
+
+const FEISHU_TOKEN_URL = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal";
+const FEISHU_MSG_URL = "https://open.feishu.cn/open-apis/im/v1/messages";
+
+// ── Main Handler ────────────────────────────────────────────────────
 
 export default {
   async fetch(request, env) {
+
     const url = new URL(request.url);
 
     if (request.method === "OPTIONS") {
@@ -126,7 +129,64 @@ export default {
       return json({ ok: true });
     }
 
-    // ── Subscribe (POST) ──
+    // ── Feishu DM Subscribe REST API ──
+    // Called by feishu-ws-client.js (GitHub Actions 长连接)
+
+    if (request.method === "POST" && url.pathname === "/api/feishu-subscribe") {
+      let body;
+      try { body = await request.json(); } catch { return json({ok:false,msg:"bad json"},400); }
+      const openId = (body.open_id || "").trim();
+      const dates = Array.isArray(body.dates) ? body.dates : [];
+      if (!openId) return json({ok:false,msg:"open_id required"},400);
+
+      try {
+        const { raw: subs, sha } = await readJSON(env, "data/feishu_subs.json");
+        const list = Array.isArray(subs) ? subs : [];
+        const idx = list.findIndex(s => s.open_id === openId);
+        const entry = { open_id: openId, dates, subscribed_at: new Date().toISOString() };
+        const action = idx >= 0 ? "updated" : "subscribed";
+        if (idx >= 0) list[idx] = entry;
+        else list.push(entry);
+        await writeJSON(env, "data/feishu_subs.json", list, sha, `Feishu ${action}: ${openId}`);
+        return json({ ok: true, open_id: openId, dates, action });
+      } catch (err) {
+        return json({ ok: false, msg: err.message }, 500);
+      }
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/feishu-unsubscribe") {
+      let body;
+      try { body = await request.json(); } catch { return json({ok:false,msg:"bad json"},400); }
+      const openId = (body.open_id || "").trim();
+      if (!openId) return json({ok:false,msg:"open_id required"},400);
+
+      try {
+        const { raw: subs, sha } = await readJSON(env, "data/feishu_subs.json");
+        const list = Array.isArray(subs) ? subs : [];
+        const filtered = list.filter(s => s.open_id !== openId);
+        if (filtered.length === list.length) return json({ok:false,msg:"not found"});
+        await writeJSON(env, "data/feishu_subs.json", filtered, sha, `Feishu unsubscribe: ${openId}`);
+        return json({ok:true,open_id:openId,action:"unsubscribed"});
+      } catch (err) {
+        return json({ ok: false, msg: err.message }, 500);
+      }
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/feishu-status") {
+      const openId = url.searchParams.get("open_id");
+      if (!openId) return json({ok:false,msg:"open_id required"},400);
+      try {
+        const { raw: subs } = await readJSON(env, "data/feishu_subs.json");
+        const list = Array.isArray(subs) ? subs : [];
+        const entry = list.find(s => s.open_id === openId);
+        return json({ ok: true, subscribed: !!entry, dates: entry ? entry.dates : null });
+      } catch (err) {
+        return json({ ok: false, msg: err.message }, 500);
+      }
+    }
+
+    // ── Email Subscribe ───────────────────────────────────────────────
+
     if (request.method === "POST" && url.pathname === "/api/subscribe") {
       let body;
       try { body = await request.json(); } catch { return json({ok:false,msg:"bad json"},400); }
@@ -136,16 +196,17 @@ export default {
       try {
         const { raw: emails, sha } = await readJSON(env, "data/subscribers.json");
         const list = Array.isArray(emails) ? emails : [];
-        if (list.includes(email)) return json({ ok: true, msg: "already" });
+        if (list.includes(email)) return json({ ok: true, already_subscribed: true });
         list.push(email);
         await writeJSON(env, "data/subscribers.json", list, sha, "Subscribe: new subscriber");
-        return json({ ok: true, msg: "subscribed", total: list.length });
+        return json({ ok: true, total: list.length });
       } catch (err) {
         return json({ ok: false, msg: err.message }, 500);
       }
     }
 
-    // ── Unsubscribe ──
+    // ── Email Unsubscribe ─────────────────────────────────────────────
+
     if (url.pathname === "/api/unsubscribe") {
       let email;
       if (request.method === "POST") {
@@ -168,7 +229,6 @@ export default {
         }
         await writeJSON(env, "data/subscribers.json", filtered, sha, "Unsubscribe");
 
-        // Also clean welcomed.json
         try {
           const { raw: w, sha: ws } = await readJSON(env, "data/welcomed.json");
           const wList = Array.isArray(w) ? w : [];
@@ -184,9 +244,9 @@ export default {
       }
     }
 
-    // ── Admin send message to Feishu group (POST) ──
+    // ── Admin send to Feishu group ────────────────────────────────────
+
     if (request.method === "POST" && url.pathname === "/api/admin-send") {
-      // 密码核验
       const password = env.ADMIN_PASSWORD;
       if (!password) return json({ ok: false, msg: "ADMIN_PASSWORD not configured" }, 500);
 
@@ -194,13 +254,11 @@ export default {
       try { body = await request.json(); } catch { return json({ ok: false, msg: "bad json" }, 400); }
       if (body.password !== password) return json({ ok: false, msg: "wrong password" }, 403);
 
-      // 仅校验密码，不发消息
       if (body.auth_only) return json({ ok: true, msg: "auth ok" });
 
       const text = (body.text || "").trim();
       if (!text || text.length > 4000) return json({ ok: false, msg: "text empty or too long (max 4000)" }, 400);
 
-      // 发送飞书消息
       const appId = env.FEISHU_APP_ID;
       const appSecret = env.FEISHU_APP_SECRET;
       const chatId = env.FEISHU_CHAT_ID;
@@ -209,8 +267,7 @@ export default {
       }
 
       try {
-        // 获取 token
-        const tokenResp = await fetch("https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal", {
+        const tokenResp = await fetch(FEISHU_TOKEN_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
@@ -218,9 +275,8 @@ export default {
         const tokenData = await tokenResp.json();
         if (tokenData.code !== 0) throw new Error(`token: ${tokenData.msg}`);
 
-        // 发送消息
         const msgResp = await fetch(
-          `https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id`,
+          `${FEISHU_MSG_URL}?receive_id_type=chat_id`,
           {
             method: "POST",
             headers: {

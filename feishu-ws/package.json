@@ -1,0 +1,9 @@
+{
+  "name": "quota-monitor-feishu-ws",
+  "version": "1.0.0",
+  "description": "Feishu WebSocket long-connection client for quota-monitor DM notifications",
+  "type": "module",
+  "dependencies": {
+    "@larksuiteoapi/node-sdk": "^1.24.0"
+  }
+}

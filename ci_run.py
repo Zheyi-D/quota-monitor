@@ -19,7 +19,7 @@ from quota_monitor.core import (
     format_changes,
     has_significant_change,
 )
-from quota_monitor.notify import send_email_smtp, send_feishu_api, send_feishu_webhook
+from quota_monitor.notify import send_email_smtp, send_feishu_api, send_feishu_dm, send_feishu_webhook
 from quota_monitor.state import load_state, save_state
 
 logging.basicConfig(
@@ -180,7 +180,7 @@ def main():
     changes = detect_changes(old_snapshot, snapshot)
 
     # ── 4. 发送通知 ──
-    notify_result = {"feishu": None, "email": 0, "welcome": 0}
+    notify_result = {"feishu": None, "email": 0, "welcome": 0, "feishu_dm": 0}
     if is_first_run:
         logger.info("首次运行，基准快照已建立，不发送通知")
         _append_run_log("INIT | 首次运行，基准快照已建立")
@@ -239,6 +239,40 @@ def main():
                 logger.info("邮件通知: %d/%d", sent_count, len(subscribers))
                 notify_result["email"] = sent_count
 
+        # Feishu DM 按日期过滤通知
+        if app_id and app_secret:
+            feishu_subs = _load_json_encrypted("data/feishu_subs.json")
+            if feishu_subs and isinstance(feishu_subs, list) and feishu_subs:
+                released_dates = {date for (date, _, _), _, _ in changes.get("newly_available", [])}
+                dm_sent = 0
+                for sub in feishu_subs:
+                    open_id = sub.get("open_id", "")
+                    user_dates = sub.get("dates") or []
+                    if not open_id:
+                        continue
+                    # user_dates=[] means all dates
+                    if not user_dates or any(d in released_dates for d in user_dates):
+                        matching = [d for d in released_dates
+                                    if not user_dates or d in user_dates]
+                        # Build personalized DM with only matching dates
+                        dm_lines = ["## 🔔 你关注的日期有新增配额！\n"]
+                        for (date, office, qtype), old_s, new_s in changes["newly_available"]:
+                            if not user_dates or date in user_dates:
+                                office_name = DEFAULT_OFFICES.get(office, office)
+                                dm_lines.append(
+                                    f"  • {date}  {office_name}({office})"
+                                )
+                        dm_lines.append(f"\n📋 [预约办理]({BOOKING_URL}) ｜ 📊 [实时看板]({DASHBOARD_URL})")
+                        dm_text = "\n".join(dm_lines)
+                        try:
+                            if send_feishu_dm(dm_text, app_id, app_secret, open_id):
+                                dm_sent += 1
+                        except Exception as e:
+                            logger.warning("飞书 DM 发送失败 open_id=%s: %s", open_id[:16], e)
+                if dm_sent > 0:
+                    logger.info("飞书 DM 通知: %d/%d", dm_sent, len(feishu_subs))
+                notify_result["feishu_dm"] = dm_sent
+
         # 写日志
         _append_notify_log({
             "time": datetime.now().isoformat(),
@@ -246,6 +280,7 @@ def main():
             "changes": len(changes.get("newly_available", [])),
             "feishu": notify_result["feishu"],
             "email": notify_result["email"],
+            "feishu_dm": notify_result.get("feishu_dm", 0),
             "summary": f"配额变化: {len(changes.get('newly_available',[]))} 个日期"
         })
 
