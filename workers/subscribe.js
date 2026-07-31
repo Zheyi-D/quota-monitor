@@ -261,10 +261,12 @@ export default {
 
       const appId = env.FEISHU_APP_ID;
       const appSecret = env.FEISHU_APP_SECRET;
-      const chatId = env.FEISHU_CHAT_ID;
-      if (!appId || !appSecret || !chatId) {
+      const chatIdsRaw = env.FEISHU_CHAT_ID;
+      if (!appId || !appSecret || !chatIdsRaw) {
         return json({ ok: false, msg: "Feishu credentials not configured" }, 500);
       }
+
+      const chatIds = chatIdsRaw.split(",").map(c => c.trim()).filter(Boolean);
 
       try {
         const tokenResp = await fetch(FEISHU_TOKEN_URL, {
@@ -275,28 +277,27 @@ export default {
         const tokenData = await tokenResp.json();
         if (tokenData.code !== 0) throw new Error(`token: ${tokenData.msg}`);
 
-        const msgResp = await fetch(
-          `${FEISHU_MSG_URL}?receive_id_type=chat_id`,
-          {
+        let okCount = 0;
+        const sends = chatIds.map(cid =>
+          fetch(`${FEISHU_MSG_URL}?receive_id_type=chat_id`, {
             method: "POST",
             headers: {
               Authorization: `Bearer ${tokenData.tenant_access_token}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              receive_id: chatId,
+              receive_id: cid,
               msg_type: "interactive",
               content: JSON.stringify({
                 header: { title: { content: "📢 系统消息", tag: "plain_text" }, template: "blue" },
                 elements: [{ tag: "markdown", content: text }],
               }),
             }),
-          }
+          }).then(async r => { const d = await r.json(); if (d.code === 0) okCount++; else console.error(`send to ${cid}: ${d.msg}`); })
         );
-        const msgData = await msgResp.json();
-        if (msgData.code !== 0) throw new Error(`send: ${msgData.msg}`);
+        await Promise.all(sends);
 
-        return json({ ok: true, msg: "sent" });
+        return json({ ok: okCount > 0, msg: `sent to ${okCount}/${chatIds.length} groups` });
       } catch (err) {
         return json({ ok: false, msg: err.message }, 500);
       }
