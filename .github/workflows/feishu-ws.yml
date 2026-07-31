@@ -4,8 +4,8 @@ name: Feishu WebSocket Client
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "4 */5 * * *"
+  repository_dispatch:
+    types: [feishu-ws]
 
 jobs:
   ws-client:
