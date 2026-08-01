@@ -3,204 +3,393 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>群发消息 · quota-monitor</title>
+<title>管理后台 · quota-monitor</title>
 <style>
 :root {
   --bg: #fff; --bg2: #f8f9fa; --text: #1a1a2e; --text2: #6b7280;
-  --border: #e5e7eb; --green: #16a34a; --accent: #2563eb; --radius: 8px;
+  --border: #e5e7eb; --green: #16a34a; --red: #dc2626; --accent: #2563eb;
+  --radius: 8px;
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
 }
 @media (prefers-color-scheme: dark) {
   :root { --bg: #0f172a; --bg2: #1e293b; --text: #f1f5f9; --text2: #94a3b8; --border: #334155; }
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: var(--font); background: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
-.panel { width: 100%; max-width: 500px; }
-.panel h1 { font-size: 1.3rem; margin-bottom: 4px; }
-.panel .sub { font-size: 0.82rem; color: var(--text2); margin-bottom: 20px; }
-.card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
-label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; }
-input, textarea { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); color: var(--text); font-size: 0.9rem; font-family: var(--font); margin-bottom: 12px; }
-textarea { min-height: 120px; resize: vertical; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); display: flex; justify-content: center; min-height: 100vh; padding: 20px; }
+.container { width: 100%; max-width: 860px; }
+h1 { font-size: 1.25rem; margin-bottom: 4px; }
+.sub { font-size: 0.82rem; color: var(--text2); margin-bottom: 16px; }
+
+/* Tabs */
+.tabs { display: flex; gap: 2px; margin-bottom: 16px; border-bottom: 2px solid var(--border); }
+.tab { padding: 8px 16px; border: none; background: none; font-size: 0.85rem; font-weight: 600; color: var(--text2); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; font-family: var(--font); }
+.tab:hover { color: var(--text); }
+.tab.on { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Cards */
+.card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+.card-title { font-size: 0.9rem; font-weight: 700; margin-bottom: 12px; }
+.kpi-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.kpi { flex: 1; min-width: 120px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; text-align: center; }
+.kpi .kv { font-size: 1.8rem; font-weight: 800; color: var(--accent); }
+.kpi .kl { font-size: 0.75rem; color: var(--text2); margin-top: 2px; }
+
+/* Table */
+table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+th { text-align: left; padding: 8px 10px; border-bottom: 2px solid var(--border); font-weight: 700; font-size: 0.78rem; color: var(--text2); }
+td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+.mono { font-family: "SF Mono", "Cascadia Code", Consolas, monospace; font-size: 0.8rem; }
+.date-list { font-size: 0.78rem; color: var(--text2); max-width: 260px; word-break: break-all; }
+
+/* Controls */
+.toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+input, textarea { padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); color: var(--text); font-size: 0.88rem; font-family: var(--font); }
 input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
-.btn { display: inline-block; padding: 8px 24px; border: none; border-radius: var(--radius); background: var(--accent); color: #fff; font-size: 0.9rem; font-weight: 600; cursor: pointer; font-family: var(--font); }
-.btn:hover { opacity: 0.9; }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.msg { margin-top: 10px; font-size: 0.85rem; }
+textarea { width: 100%; min-height: 120px; resize: vertical; margin-bottom: 8px; }
+.btn { display: inline-block; padding: 8px 18px; border: none; border-radius: var(--radius); font-size: 0.85rem; font-weight: 600; cursor: pointer; font-family: var(--font); }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-danger { background: var(--red); color: #fff; }
+.btn-ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+.btn-sm { padding: 4px 12px; font-size: 0.78rem; }
+.btn:hover { opacity: 0.85; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.search { width: 220px; }
+.msg { margin-top: 8px; font-size: 0.84rem; }
 .msg.ok { color: var(--green); }
 .msg.err { color: var(--red); }
-.hidden { display: none; }
-.preview { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-top: 16px; font-size: 0.85rem; line-height: 1.6; white-space: pre-wrap; color: var(--text2); }
-.preview strong { color: var(--text); }
-.logout { font-size: 0.78rem; color: var(--text2); margin-top: 12px; cursor: pointer; text-decoration: underline; }
+.hidden { display: none !important; }
+.refresh { font-size: 0.82rem; color: var(--text2); margin-left: 8px; }
+
+/* Login */
+.login-box { text-align: center; margin-top: 60px; }
+.login-box .card { max-width: 360px; margin: 0 auto; }
+label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; text-align: left; }
+input[type="password"] { width: 100%; margin-bottom: 12px; }
+
+.detail-row { cursor: pointer; }
+.detail-row:hover { background: var(--bg); }
+.detail-body td { padding: 6px 10px 10px 30px; color: var(--text2); font-size: 0.82rem; background: var(--bg); }
+
+.logout { font-size: 0.78rem; color: var(--text2); margin-top: 4px; cursor: pointer; text-decoration: underline; }
 </style>
 </head>
 <body>
-<div class="panel">
-  <h1>📢 群发消息</h1>
-  <p class="sub">通过飞书机器人向群内发送消息</p>
-
-  <!-- Login view -->
-  <div id="loginView" class="card">
-    <label>🔐 输入管理密码</label>
-    <input type="password" id="pwdInput" placeholder="输入密码...">
-    <button class="btn" id="loginBtn">验证</button>
-    <div id="loginMsg" class="msg hidden"></div>
+<div class="container">
+  <!-- Login -->
+  <div id="loginView" class="login-box">
+    <h1>📢 管理后台</h1>
+    <p class="sub">quota-monitor</p>
+    <div class="card">
+      <label>🔐 管理密码</label>
+      <input type="password" id="pwdInput" placeholder="输入密码...">
+      <button class="btn btn-primary" id="loginBtn" style="width:100%">验证</button>
+      <div id="loginMsg" class="msg hidden"></div>
+    </div>
   </div>
 
-  <!-- Send view -->
-  <div id="sendView" class="card hidden">
-    <label>✏️ 输入消息内容（支持 Markdown）</label>
-    <textarea id="msgInput" placeholder="输入要发送的消息...&#10;&#10;**粗体**、[链接](https://...)、&#10;📊 实时看板：https://Zheyi-D.github.io/quota-monitor"></textarea>
-    <button class="btn" id="sendBtn">📤 发送到群</button>
-    <div id="sendMsg" class="msg hidden"></div>
-    <div class="preview hidden" id="previewBox">
-      <strong>📋 上次发送</strong>
-      <div id="previewContent"></div>
+  <!-- Main (hidden until login) -->
+  <div id="mainView" class="hidden">
+    <h1>📢 管理后台</h1>
+    <p class="sub">quota-monitor · <span class="logout" id="logoutBtn">退出</span></p>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab on" data-tab="overview">📊 概览</button>
+      <button class="tab" data-tab="email">📧 邮件订阅</button>
+      <button class="tab" data-tab="dm">💬 DM 订阅</button>
+      <button class="tab" data-tab="send">📢 群发</button>
     </div>
-    <span class="logout" id="logoutBtn">退出登录</span>
+
+    <!-- 📊 Overview -->
+    <div id="tab-overview">
+      <div class="kpi-row" id="kpiRow">
+        <div class="kpi"><div class="kv" id="kpiEmail">-</div><div class="kl">邮件订阅</div></div>
+        <div class="kpi"><div class="kv" id="kpiDmActive">-</div><div class="kl">DM 活跃订阅</div></div>
+        <div class="kpi"><div class="kv" id="kpiDmAll">-</div><div class="kl">全部日期 / 特定日期</div></div>
+        <div class="kpi"><div class="kv" id="kpiDmDaily">-</div><div class="kl">今日 DM 新增 / 退订</div></div>
+        <div class="kpi"><div class="kv" id="kpiDmEver">-</div><div class="kl">历史累计 DM</div></div>
+      </div>
+    </div>
+
+    <!-- 📧 Email -->
+    <div id="tab-email" class="hidden">
+      <div class="card">
+        <div class="toolbar">
+          <input class="search" id="emailSearch" placeholder="🔍 搜索邮箱..." oninput="filterEmail()">
+          <span style="font-size:0.82rem;color:var(--text2)">共 <strong id="emailCount">0</strong> 人</span>
+          <button class="btn btn-ghost btn-sm" onclick="copyEmails()">📋 复制全部</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportCSV('email')">📥 导出 CSV</button>
+        </div>
+        <div style="max-height:420px;overflow-y:auto">
+        <table><tbody id="emailTable"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 💬 DM -->
+    <div id="tab-dm" class="hidden">
+      <div class="card">
+        <div class="toolbar">
+          <input class="search" id="dmSearch" placeholder="🔍 搜索 open_id..." oninput="filterDm()">
+          <span style="font-size:0.82rem;color:var(--text2)">共 <strong id="dmCount">0</strong> 人</span>
+        </div>
+        <div style="max-height:420px;overflow-y:auto">
+        <table><tbody id="dmTable"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 📢 Send -->
+    <div id="tab-send" class="hidden">
+      <div class="card">
+        <div class="card-title">📝 消息编辑</div>
+        <textarea id="msgInput" placeholder="输入 Markdown 消息...&#10;&#10;**粗体** [链接](https://...)&#10;📊 看板: https://Zheyi-D.github.io/quota-monitor"></textarea>
+        <div class="toolbar">
+          <button class="btn btn-primary" id="sendGroupBtn">🔔 发送到群</button>
+          <button class="btn btn-ghost" id="sendDmBtn">💬 私聊群发</button>
+          <span style="font-size:0.78rem;color:var(--text2)">（私聊群发有 0.5s/人 间隔，请耐心等待）</span>
+        </div>
+        <div id="sendMsg" class="msg hidden"></div>
+      </div>
+    </div>
   </div>
 </div>
 
 <script>
-const WORKER_URL = "https://quota-monitor.deng-zheyi.workers.dev";
-const AUTH_KEY = "qm_admin_auth";
-const AUTH_TTL = 24 * 3600 * 1000; // 24 hours
+const WORKER = "https://quota-monitor.deng-zheyi.workers.dev";
+const AUTH_KEY = "qm_admin_auth2";
+const AUTH_TTL = 24 * 3600 * 1000;
 
+let pwd = "";
+let emailList = [], dmList = [];
+
+// ── Login ────────────────────────────────────────────
 const loginView = document.getElementById("loginView");
-const sendView = document.getElementById("sendView");
+const mainView = document.getElementById("mainView");
 const pwdInput = document.getElementById("pwdInput");
-const msgInput = document.getElementById("msgInput");
 const loginBtn = document.getElementById("loginBtn");
-const sendBtn = document.getElementById("sendBtn");
 const loginMsg = document.getElementById("loginMsg");
-const sendMsg = document.getElementById("sendMsg");
-const previewBox = document.getElementById("previewBox");
-const previewContent = document.getElementById("previewContent");
-const logoutBtn = document.getElementById("logoutBtn");
 
-// Check stored auth
 function checkAuth() {
   try {
     const stored = JSON.parse(localStorage.getItem(AUTH_KEY) || "{}");
-    if (stored.expires && Date.now() < stored.expires) {
-      showSendView();
+    if (stored.p && stored.exp && Date.now() < stored.exp) {
+      pwd = stored.p;
+      showMain();
       return;
     }
-  } catch (_) {}
-  showLoginView();
-}
-
-function showLoginView() {
-  loginView.classList.remove("hidden");
-  sendView.classList.add("hidden");
+  } catch {}
   pwdInput.focus();
 }
 
-function showSendView() {
-  loginView.classList.add("hidden");
-  sendView.classList.remove("hidden");
-  msgInput.focus();
-}
-
-function showMsg(el, text, ok) {
-  el.textContent = text;
-  el.className = "msg " + (ok ? "ok" : "err");
-  el.classList.remove("hidden");
-  setTimeout(() => el.classList.add("hidden"), 5000);
-}
-
-// Login
-loginBtn.addEventListener("click", async () => {
-  const password = pwdInput.value;
-  if (!password) return showMsg(loginMsg, "请输入密码", false);
-
+async function doLogin() {
+  const pw = pwdInput.value;
+  if (!pw) return showLMsg("请输入密码", false);
   loginBtn.disabled = true;
   try {
-    const resp = await fetch(`${WORKER_URL}/api/admin-send`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password, auth_only: true }),
+    const resp = await fetch(`${WORKER}/api/admin-send`, {
+      method: "POST", headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ password: pw, auth_only: true }),
     });
     if (resp.status === 200) {
-      localStorage.setItem(AUTH_KEY, JSON.stringify({ expires: Date.now() + AUTH_TTL }));
-      showMsg(loginMsg, "✅ 验证成功", true);
-      showSendView();
-    } else if (resp.status === 403) {
-      showMsg(loginMsg, "❌ 密码错误", false);
+      localStorage.setItem(AUTH_KEY, JSON.stringify({ p: pw, exp: Date.now() + AUTH_TTL }));
+      pwd = pw;
+      showLMsg("✅ ok", true);
+      showMain();
     } else {
-      showMsg(loginMsg, "❌ 服务器错误", false);
+      showLMsg("❌ 密码错误", false);
     }
-  } catch {
-    showMsg(loginMsg, "❌ 网络错误", false);
-  } finally {
-    loginBtn.disabled = false;
-  }
+  } catch { showLMsg("❌ 网络错误", false); }
+  loginBtn.disabled = false;
+}
+function showLMsg(t, ok) { loginMsg.textContent = t; loginMsg.className = "msg " + (ok ? "ok" : "err"); loginMsg.classList.remove("hidden"); }
+loginBtn.addEventListener("click", doLogin);
+pwdInput.addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
+
+document.getElementById("logoutBtn").addEventListener("click", () => {
+  localStorage.removeItem(AUTH_KEY);
+  pwd = "";
+  mainView.classList.add("hidden");
+  loginView.classList.remove("hidden");
+  pwdInput.value = "";
+  pwdInput.focus();
 });
 
-pwdInput.addEventListener("keydown", (e) => { if (e.key === "Enter") loginBtn.click(); });
+// ── Tabs ──────────────────────────────────────────────
+let currentTab = "overview";
+document.querySelectorAll(".tab").forEach(t => {
+  t.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(x => x.classList.remove("on"));
+    t.classList.add("on");
+    switchTab(t.dataset.tab);
+  });
+});
 
-// Send
-sendBtn.addEventListener("click", async () => {
-  const text = msgInput.value.trim();
-  if (!text) return showMsg(sendMsg, "请输入消息内容", false);
-  if (text.length > 4000) return showMsg(sendMsg, "消息过长（最多 4000 字符）", false);
+function switchTab(name) {
+  currentTab = name;
+  ["overview","email","dm","send"].forEach(n => document.getElementById("tab-"+n).classList.toggle("hidden", n !== name));
+  if (name === "overview") loadStats();
+  if (name === "email" && emailList.length === 0) loadEmails();
+  if (name === "dm" && dmList.length === 0) loadDm();
+}
 
-  const stored = JSON.parse(localStorage.getItem(AUTH_KEY) || "{}");
-  // The password is verified on Worker side; we just need to check "is it real send?"
-  // Use a lightweight verification: send with a special header or just require password
-  // But we don't store the password in localStorage. Instead the Worker checks the password.
-  // Wait... the Worker requires password in the body. We need it.
-  // Let's prompt once via the stored auth token approach differently.
-  // Actually, let's just have the Worker support a simpler token, or we store it encrypted.
-  // Simplest fix: the login sends a dummy check, and we store the password locally too.
-  // SECURITY NOTE: password in localStorage is visible to anyone with browser dev tools,
-  // but this is an admin tool on a personal device, so acceptable.
+// ── Data loading ──────────────────────────────────────
+async function post(path, body) {
+  const resp = await fetch(`${WORKER}${path}`, {
+    method: "POST", headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ ...body, password: pwd }),
+  });
+  return resp.json();
+}
 
-  // We need password for every send. Let me get it from a stored variable.
-  // Actually the login already verified it. We just need to send it again.
-  // Let's store it in a closure variable.
+async function loadStats() {
+  const data = await post("/api/admin/stats", {});
+  if (!data.ok) return;
+  document.getElementById("kpiEmail").textContent = data.email_count;
+  document.getElementById("kpiDmActive").textContent = data.dm_active;
+  document.getElementById("kpiDmAll").textContent = data.dm_all + " / " + data.dm_pick;
+  document.getElementById("kpiDmDaily").textContent = "+" + data.dm_daily_new + " / -" + data.dm_daily_unsub;
+  document.getElementById("kpiDmEver").textContent = data.dm_ever;
+}
 
-  showMsg(sendMsg, "发送中...", true);
-  sendBtn.disabled = true;
+async function loadEmails() {
+  const data = await post("/api/admin/subscribers", {});
+  if (!data.ok) return;
+  emailList = data.subscribers || [];
+  renderEmailTable();
+}
+
+async function loadDm() {
+  const data = await post("/api/admin/dm-subscribers", {});
+  if (!data.ok) return;
+  dmList = data.subscribers || [];
+  renderDmTable();
+}
+
+// ── Email table ───────────────────────────────────────
+function renderEmailTable(filter) {
+  const list = filter ? emailList.filter(e => e.toLowerCase().includes(filter.toLowerCase())) : emailList;
+  document.getElementById("emailCount").textContent = emailList.length;
+  const tbody = document.getElementById("emailTable");
+  if (list.length === 0) { tbody.innerHTML = '<tr><td style="text-align:center;color:var(--text2);padding:24px">无数据</td></tr>'; return; }
+  tbody.innerHTML = list.map((e, i) => `
+    <tr>
+      <td style="width:32px;color:var(--text2)">${i+1}</td>
+      <td class="mono">${esc(e)}</td>
+      <td style="text-align:right"><button class="btn btn-danger btn-sm" onclick="delEmail('${esc(e)}')">删除</button></td>
+    </tr>`).join("");
+}
+function filterEmail() { renderEmailTable(document.getElementById("emailSearch").value); }
+
+async function delEmail(email) {
+  if (!confirm(`确定删除 ${email}？`)) return;
   try {
-    const resp = await fetch(`${WORKER_URL}/api/admin-send`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password: window._adminPwd, text }),
+    const resp = await fetch(`${WORKER}/api/unsubscribe`, {
+      method: "POST", headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ email }),
     });
     const data = await resp.json();
-    if (resp.ok && data.ok) {
-      showMsg(sendMsg, "✅ 已发送到群", true);
-      previewContent.textContent = text;
-      previewBox.classList.remove("hidden");
-      msgInput.value = "";
-    } else if (resp.status === 403) {
-      showMsg(sendMsg, "❌ 登录已过期，请重新验证", false);
-      localStorage.removeItem(AUTH_KEY);
-      showLoginView();
-    } else {
-      showMsg(sendMsg, "❌ " + (data.msg || "发送失败"), false);
+    if (data.ok) {
+      emailList = emailList.filter(e => e !== email);
+      renderEmailTable();
+    } else { alert(data.msg || "删除失败"); }
+  } catch { alert("网络错误"); }
+}
+
+function copyEmails() {
+  navigator.clipboard.writeText(emailList.join("\n")).then(() => alert(`已复制 ${emailList.length} 个邮箱`));
+}
+
+function exportCSV(type) {
+  let csv = "email\n";
+  if (type === "email") emailList.forEach(e => csv += e + "\n");
+  const blob = new Blob([csv], {type: "text/csv"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "subscribers.csv"; a.click();
+}
+
+// ── DM table ──────────────────────────────────────────
+let dmExpanded = {};
+function renderDmTable(filter) {
+  const list = filter ? dmList.filter(s => s.open_id.includes(filter)) : dmList;
+  document.getElementById("dmCount").textContent = dmList.length;
+  const tbody = document.getElementById("dmTable");
+  if (list.length === 0) { tbody.innerHTML = '<tr><td style="text-align:center;color:var(--text2);padding:24px">无数据</td></tr>'; return; }
+  tbody.innerHTML = list.map(s => {
+    const shortId = s.open_id.slice(0, 14) + "…" + s.open_id.slice(-4);
+    const mode = (!s.dates || s.dates.length === 0) ? '<span style="color:var(--accent)">全部日期</span>' : s.dates.length + ' 个日期';
+    const subTime = s.subscribed_at ? s.subscribed_at.slice(0, 10) : "?";
+    const expanded = dmExpanded[s.open_id];
+    let dateDetail = "";
+    if (s.dates && s.dates.length > 0) {
+      const short = s.dates.slice(0, 20).map(d => { const [m,d2] = d.split("/"); return parseInt(m)+"/"+parseInt(d2); }).join("、");
+      const more = s.dates.length > 20 ? ` …+${s.dates.length-20}` : "";
+      dateDetail = short + more;
     }
-  } catch {
-    showMsg(sendMsg, "❌ 网络错误", false);
-  } finally {
-    sendBtn.disabled = false;
-  }
+    return `<tr class="detail-row" onclick="toggleDm('${s.open_id}')" title="点击展开/收起">
+      <td style="width:20px">${expanded ? '▼' : '▶'}</td>
+      <td class="mono">${shortId}</td>
+      <td>${mode}</td>
+      <td style="color:var(--text2)">${subTime}</td>
+      <td style="text-align:right"><button class="btn btn-danger btn-sm" onclick="event.stopPropagation();delDm('${s.open_id}')">删除</button></td>
+    </tr>
+    ${expanded && dateDetail ? `<tr class="detail-body"><td colspan="5">📅 ${dateDetail}</td></tr>` : ""}`;
+  }).join("");
+}
+function toggleDm(oid) { dmExpanded[oid] = !dmExpanded[oid]; renderDmTable(); }
+function filterDm() { renderDmTable(document.getElementById("dmSearch").value); }
+
+async function delDm(oid) {
+  const sub = dmList.find(s => s.open_id === oid);
+  if (!confirm(`确定删除 ${sub ? oid.slice(0,14)+'…' : oid}？`)) return;
+  const resp = await post("/api/feishu-unsubscribe", { open_id: oid });
+  if (resp.ok) {
+    dmList = dmList.filter(s => s.open_id !== oid);
+    renderDmTable();
+  } else { alert(resp.msg || "删除失败"); }
+}
+
+// ── Send ──────────────────────────────────────────────
+const sendMsg = document.getElementById("sendMsg");
+function showSend(t, ok) { sendMsg.textContent = t; sendMsg.className = "msg " + (ok ? "ok" : "err"); sendMsg.classList.remove("hidden"); }
+
+document.getElementById("sendGroupBtn").addEventListener("click", async () => {
+  const text = document.getElementById("msgInput").value.trim();
+  if (!text) return showSend("请输入消息", false);
+  if (text.length > 4000) return showSend("超过4000字", false);
+
+  showSend("发送中...", true);
+  try {
+    const resp = await fetch(`${WORKER}/api/admin-send`, {
+      method: "POST", headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ password: pwd, text }),
+    });
+    const data = await resp.json();
+    showSend(data.ok ? `✅ ${data.msg || '已发送'}` : `❌ ${data.msg}`, data.ok);
+  } catch { showSend("❌ 网络错误", false); }
 });
 
-logoutBtn.addEventListener("click", () => {
-  localStorage.removeItem(AUTH_KEY);
-  showLoginView();
-  msgInput.value = "";
-  previewBox.classList.add("hidden");
+document.getElementById("sendDmBtn").addEventListener("click", async () => {
+  const text = document.getElementById("msgInput").value.trim();
+  if (!text) return showSend("请输入消息", false);
+  if (text.length > 4000) return showSend("超过4000字", false);
+  if (!confirm(`确认私聊群发给 ${dmList.length} 人？`)) return;
+
+  showSend(`发送中（${dmList.length} 人，约 ${Math.round(dmList.length*0.5)} 秒）...`, true);
+  document.getElementById("sendDmBtn").disabled = true;
+  try {
+    const data = await post("/api/admin/dm-send", { text });
+    showSend(data.ok ? `✅ 成功 ${data.sent}/${dmList.length} 人` : `❌ ${data.msg}`, data.ok);
+  } catch { showSend("❌ 网络错误", false); }
+  document.getElementById("sendDmBtn").disabled = false;
 });
 
-// Store password in memory after login
-const origLogin = loginBtn.onclick;
-loginBtn.addEventListener("click", () => {
-  window._adminPwd = pwdInput.value;
-});
+// ── Init ──────────────────────────────────────────────
+function showMain() {
+  loginView.classList.add("hidden");
+  mainView.classList.remove("hidden");
+  loadStats();
+}
+function esc(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 
 checkAuth();
 </script>

@@ -114,6 +114,32 @@ async function writeJSON(env, path, data, sha, commitMsg) {
 const FEISHU_TOKEN_URL = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal";
 const FEISHU_MSG_URL = "https://open.feishu.cn/open-apis/im/v1/messages";
 
+// ── Event Log Helper ───────────────────────────────────────────────
+
+async function appendFeishuLog(env, action, openId, dates) {
+  try {
+    const { raw: log, sha } = await readJSON(env, "data/feishu_subs_log.json");
+    const list = Array.isArray(log) ? log : [];
+    list.push({
+      time: new Date().toISOString(),
+      action,
+      open_id: openId,
+      dates: dates || [],
+    });
+    // Keep last 500 entries
+    const trimmed = list.length > 500 ? list.slice(-500) : list;
+    await writeJSON(env, "data/feishu_subs_log.json", trimmed, sha, `${action}: ${openId}`);
+  } catch { /* best-effort */ }
+}
+
+// ── Password Check Helper ──────────────────────────────────────────
+
+function checkAdmin(env, body) {
+  const pwd = env.ADMIN_PASSWORD;
+  if (!pwd) return false;
+  return body && body.password === pwd;
+}
+
 // ── Main Handler ────────────────────────────────────────────────────
 
 export default {
@@ -148,6 +174,7 @@ export default {
         if (idx >= 0) list[idx] = entry;
         else list.push(entry);
         await writeJSON(env, "data/feishu_subs.json", list, sha, `Feishu ${action}: ${openId}`);
+        await appendFeishuLog(env, "subscribe", openId, dates);
         return json({ ok: true, open_id: openId, dates, action });
       } catch (err) {
         return json({ ok: false, msg: err.message }, 500);
@@ -166,6 +193,7 @@ export default {
         const filtered = list.filter(s => s.open_id !== openId);
         if (filtered.length === list.length) return json({ok:false,msg:"not found"});
         await writeJSON(env, "data/feishu_subs.json", filtered, sha, `Feishu unsubscribe: ${openId}`);
+        await appendFeishuLog(env, "unsubscribe", openId, []);
         return json({ok:true,open_id:openId,action:"unsubscribed"});
       } catch (err) {
         return json({ ok: false, msg: err.message }, 500);
@@ -180,6 +208,130 @@ export default {
         const list = Array.isArray(subs) ? subs : [];
         const entry = list.find(s => s.open_id === openId);
         return json({ ok: true, subscribed: !!entry, dates: entry ? entry.dates : null });
+      } catch (err) {
+        return json({ ok: false, msg: err.message }, 500);
+      }
+    }
+
+    // ── Admin APIs (all require password) ────────────────────────────
+
+    // Stats
+    if (request.method === "POST" && url.pathname === "/api/admin/stats") {
+      let body;
+      try { body = await request.json(); } catch { return json({ok:false,msg:"bad json"},400); }
+      if (!checkAdmin(env, body)) return json({ok:false,msg:"unauthorized"},403);
+
+      try {
+        // Email count
+        const { raw: emails } = await readJSON(env, "data/subscribers.json");
+        const emailCount = Array.isArray(emails) ? emails.length : 0;
+
+        // DM active count
+        const { raw: dmSubs } = await readJSON(env, "data/feishu_subs.json");
+        const dmList = Array.isArray(dmSubs) ? dmSubs : [];
+        const dmActive = dmList.length;
+        const dmAll = dmList.filter(s => !s.dates || s.dates.length === 0).length;
+        const dmPick = dmList.filter(s => s.dates && s.dates.length > 0).length;
+
+        // Daily stats from log
+        const { raw: log } = await readJSON(env, "data/feishu_subs_log.json");
+        const logList = Array.isArray(log) ? log : [];
+        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+        const dailyNew = logList.filter(e => e.action === "subscribe" && e.time.slice(0,10) === today).length;
+        const dailyUnsub = logList.filter(e => e.action === "unsubscribe" && e.time.slice(0,10) === today).length;
+        const everSubscribed = new Set(logList.map(e => e.open_id)).size;
+
+        return json({ ok: true, email_count: emailCount, dm_active: dmActive, dm_all, dm_pick, dm_daily_new: dailyNew, dm_daily_unsub: dailyUnsub, dm_ever: everSubscribed });
+      } catch (err) {
+        return json({ ok: false, msg: err.message }, 500);
+      }
+    }
+
+    // Email subscriber list
+    if (request.method === "POST" && url.pathname === "/api/admin/subscribers") {
+      let body;
+      try { body = await request.json(); } catch { return json({ok:false,msg:"bad json"},400); }
+      if (!checkAdmin(env, body)) return json({ok:false,msg:"unauthorized"},403);
+
+      try {
+        const { raw: emails } = await readJSON(env, "data/subscribers.json");
+        const list = Array.isArray(emails) ? emails : [];
+        return json({ ok: true, subscribers: list, total: list.length });
+      } catch (err) {
+        return json({ ok: false, msg: err.message }, 500);
+      }
+    }
+
+    // DM subscriber list
+    if (request.method === "POST" && url.pathname === "/api/admin/dm-subscribers") {
+      let body;
+      try { body = await request.json(); } catch { return json({ok:false,msg:"bad json"},400); }
+      if (!checkAdmin(env, body)) return json({ok:false,msg:"unauthorized"},403);
+
+      try {
+        const { raw: dmSubs } = await readJSON(env, "data/feishu_subs.json");
+        const list = Array.isArray(dmSubs) ? dmSubs : [];
+        return json({ ok: true, subscribers: list, total: list.length });
+      } catch (err) {
+        return json({ ok: false, msg: err.message }, 500);
+      }
+    }
+
+    // DM mass send
+    if (request.method === "POST" && url.pathname === "/api/admin/dm-send") {
+      let body;
+      try { body = await request.json(); } catch { return json({ok:false,msg:"bad json"},400); }
+      if (!checkAdmin(env, body)) return json({ok:false,msg:"unauthorized"},403);
+
+      const text = (body.text || "").trim();
+      if (!text || text.length > 4000) return json({ ok: false, msg: "text empty or too long (max 4000)" }, 400);
+
+      const appId = env.FEISHU_APP_ID;
+      const appSecret = env.FEISHU_APP_SECRET;
+      if (!appId || !appSecret) return json({ ok: false, msg: "Feishu not configured" }, 500);
+
+      try {
+        const { raw: dmSubs } = await readJSON(env, "data/feishu_subs.json");
+        const list = Array.isArray(dmSubs) ? dmSubs : [];
+        if (list.length === 0) return json({ ok: false, msg: "no DM subscribers" });
+
+        // Get token
+        const tokenResp = await fetch(FEISHU_TOKEN_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
+        });
+        const tokenData = await tokenResp.json();
+        if (tokenData.code !== 0) throw new Error(`token: ${tokenData.msg}`);
+        const token = tokenData.tenant_access_token;
+
+        let sent = 0, failed = 0;
+        for (const sub of list) {
+          try {
+            const resp = await fetch(`${FEISHU_MSG_URL}?receive_id_type=open_id`, {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                receive_id: sub.open_id,
+                msg_type: "interactive",
+                content: JSON.stringify({
+                  header: { title: { content: "📢 系统消息", tag: "plain_text" }, template: "blue" },
+                  elements: [{ tag: "markdown", content: text }],
+                }),
+              }),
+            });
+            const data = await resp.json();
+            if (data.code === 0) sent++;
+            else { failed++; console.error(`DM to ${sub.open_id.slice(0,16)}: ${data.msg}`); }
+          } catch { failed++; }
+          // Rate limit: 500ms per user
+          await new Promise(r => setTimeout(r, 500));
+        }
+
+        return json({ ok: true, msg: `sent to ${sent}/${list.length} users`, sent, failed });
       } catch (err) {
         return json({ ok: false, msg: err.message }, 500);
       }

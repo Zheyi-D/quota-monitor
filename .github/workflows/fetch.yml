@@ -43,7 +43,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/quota.json data/last_update.json data/run.log data/subscribers.json data/welcomed.json data/feishu_subs.json data/notify_log.json state.json notify_state.json notify_log.json 2>/dev/null || true
+          git add data/quota.json data/last_update.json data/run.log data/subscribers.json data/welcomed.json data/feishu_subs.json data/feishu_subs_log.json data/notify_log.json state.json notify_state.json notify_log.json 2>/dev/null || true
           if ! git diff --staged --quiet; then
             git commit -m "🔄 Update quota data" && (git pull --rebase && git push || git push --force-with-lease) || echo "Push failed (non-critical)"
           else
