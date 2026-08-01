@@ -234,7 +234,7 @@ export default {
         const dmPick = dmList.filter(s => s.dates && s.dates.length > 0).length;
 
         // Daily stats from log (non-fatal: file may not exist yet)
-        let dailyNew = 0, dailyUnsub = 0, everSubscribed = 0;
+        let dailyNew = 0, dailyUnsub = 0, everSubscribed = dmActive;
         try {
           const { raw: log } = await readJSON(env, "data/feishu_subs_log.json");
           const logList = Array.isArray(log) ? log : [];
@@ -242,7 +242,7 @@ export default {
           dailyNew = logList.filter(e => e.action === "subscribe" && e.time.slice(0,10) === today).length;
           dailyUnsub = logList.filter(e => e.action === "unsubscribe" && e.time.slice(0,10) === today).length;
           everSubscribed = new Set(logList.map(e => e.open_id)).size;
-        } catch (_) { /* log file read failed, use defaults */ }
+        } catch (_) { /* log file read failed, use dmActive as fallback */ }
 
         return json({ ok: true, email_count: emailCount, dm_active: dmActive, dm_all: dmAll, dm_pick: dmPick, dm_daily_new: dailyNew, dm_daily_unsub: dailyUnsub, dm_ever: everSubscribed });
       } catch (err) {
