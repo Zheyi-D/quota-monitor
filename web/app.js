@@ -326,7 +326,7 @@ document.getElementById("tabTrend").addEventListener("click", () => {
 
 // ─── Trend View: release log rendering ─────────────────────
 
-const HOURS_TREND = (() => { const a = []; for (let h = 8; h <= 22; h++) a.push(h); return a; })();
+const HOURS_TREND = (() => { const a = []; for (let h = 8; h <= 23; h++) a.push(h); return a; })();
 const DAYS_TREND = ["日","一","二","三","四","五","六"];
 
 let batchesTrend = [];
@@ -386,7 +386,7 @@ function renderHeatmap(pd) {
   const N = HOURS_TREND.length;
   if (batchesTrend.length === 0) {
     document.getElementById("tmHead").innerHTML = "";
-    document.getElementById("tmBody").innerHTML = `<tr><td colspan="${N+1}" style="text-align:center;padding:48px 16px;color:var(--text2);font-size:0.9rem">📊 数据收集中，放号规律将在检测到配额变化后自动生成<br><small style="color:var(--text2);opacity:0.7">系统每 2 分钟扫描一次（08:00-22:00）</small></td></tr>`;
+    document.getElementById("tmBody").innerHTML = `<tr><td colspan="${N+1}" style="text-align:center;padding:48px 16px;color:var(--text2);font-size:0.9rem">📊 数据收集中，放号规律将在检测到配额变化后自动生成<br><small style="color:var(--text2);opacity:0.7">系统每 2 分钟扫描一次（08:00-24:00）</small></td></tr>`;
     return;
   }
 
