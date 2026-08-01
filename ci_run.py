@@ -57,11 +57,11 @@ def _append_run_log(line):
         elif "Not Found" not in r.stderr:
             logger.debug("读取 run.log 失败: %s", r.stderr[:100])
 
-        # 2. 追加新行，保留最近 200 行
+        # 2. 追加新行，保留最近 10000 行
         lines = existing.splitlines(True)
         lines.append(new_line)
-        if len(lines) > 200:
-            lines = lines[-200:]
+        if len(lines) > 10000:
+            lines = lines[-10000:]
 
         # 3. 写入
         content_b64 = base64.b64encode("".join(lines).encode()).decode()
