@@ -244,7 +244,7 @@ export default {
           everSubscribed = new Set(logList.map(e => e.open_id)).size;
         } catch (_) { /* log file read failed, use defaults */ }
 
-        return json({ ok: true, email_count: emailCount, dm_active: dmActive, dm_all, dm_pick, dm_daily_new: dailyNew, dm_daily_unsub: dailyUnsub, dm_ever: everSubscribed });
+        return json({ ok: true, email_count: emailCount, dm_active: dmActive, dm_all: dmAll, dm_pick: dmPick, dm_daily_new: dailyNew, dm_daily_unsub: dailyUnsub, dm_ever: everSubscribed });
       } catch (err) {
         return json({ ok: false, msg: err.message }, 500);
       }
