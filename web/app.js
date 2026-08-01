@@ -384,11 +384,12 @@ function fmtDate(ts) {
 
 function renderHeatmap(pd) {
   const N = HOURS_TREND.length;
-  if (batchesTrend.length === 0) {
-    document.getElementById("tmHead").innerHTML = "";
-    document.getElementById("tmBody").innerHTML = `<tr><td colspan="${N+1}" style="text-align:center;padding:48px 16px;color:var(--text2);font-size:0.9rem">📊 数据收集中，放号规律将在检测到配额变化后自动生成<br><small style="color:var(--text2);opacity:0.7">系统每 2 分钟扫描一次（08:00-22:00）</small></td></tr>`;
-    return;
-  }
+  // 数据修复中 — run.log 被重复日志污染，正在从 git 历史恢复
+  document.getElementById("tmHead").innerHTML = "";
+  document.getElementById("tmBody").innerHTML = `<tr><td colspan="${N+1}" style="text-align:center;padding:48px 16px;color:var(--text2);font-size:0.9rem">🔧 数据正在修复中，预计 8.1 凌晨恢复<br><small style="color:var(--text2);opacity:0.7">系统每 2 分钟扫描一次（08:00-22:00）</small></td></tr>`;
+  document.getElementById("tcVal").textContent = "修复中...";
+  document.getElementById("top3List").innerHTML = '<li style="color:var(--text2)">数据修复中</li>';
+  return;
 
   const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Shanghai" }));
   const cutoff = new Date(now - pd * 86400000);
