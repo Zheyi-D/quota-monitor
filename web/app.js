@@ -287,10 +287,13 @@ async function init() {
       "⚠️ " + err.message + " 請稍後再試，或直接訪問入境處官網查詢。";
   }
 
-  // Setup event listeners
-  document.getElementById("subscribeBtn").addEventListener("click", handleSubscribe);
-  document.getElementById("unsubscribeBtn").addEventListener("click", handleUnsubscribe);
-  document.getElementById("subscribeEmail").addEventListener("keydown", (e) => {
+  // Setup event listeners (null-safe: email subscribe UI may be removed)
+  const subBtn = document.getElementById("subscribeBtn");
+  const unsubBtn = document.getElementById("unsubscribeBtn");
+  const subInput = document.getElementById("subscribeEmail");
+  if (subBtn) subBtn.addEventListener("click", handleSubscribe);
+  if (unsubBtn) unsubBtn.addEventListener("click", handleUnsubscribe);
+  if (subInput) subInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") handleSubscribe();
   });
 

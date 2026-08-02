@@ -160,84 +160,54 @@ header h1 {
   color: #fff;
 }
 
-/* ── Subscribe ── */
-.subscribe-box {
+/* ── Feishu CTA ── */
+.feishu-cta {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 10px 16px;
+  padding: 14px 20px;
   margin-top: 8px;
 }
-.subscribe-hint {
-  margin-top: 8px;
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  line-height: 1.5;
-}
-.subscribe-hint a {
-  color: var(--accent);
-  text-decoration: none;
-}
-.subscribe-hint a:hover {
-  text-decoration: underline;
-}
-.subscribe-inner {
+.feishu-cta-inner {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
   flex-wrap: wrap;
 }
-.subscribe-label {
-  font-weight: 600;
-  font-size: 0.9rem;
-  white-space: nowrap;
+.feishu-cta-icon {
+  font-size: 1.8rem;
 }
-.subscribe-input {
+.feishu-cta-text {
   flex: 1;
-  min-width: 200px;
-  padding: 6px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg);
+  min-width: 180px;
+  line-height: 1.4;
+}
+.feishu-cta-text strong {
+  display: block;
+  font-size: 0.92rem;
   color: var(--text);
-  font-size: 0.85rem;
-  font-family: var(--font);
 }
-.subscribe-input:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: -1px;
+.feishu-cta-text span {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
 }
-.btn-subscribe {
+.btn-feishu {
   background: var(--accent);
   color: #fff;
-  border-color: var(--accent);
   font-weight: 600;
-}
-.btn-subscribe:hover:not(:disabled) {
-  opacity: 0.9;
-}
-.btn-subscribe:disabled {
-  opacity: 0.5;
-}
-.btn-unsubscribe {
-  background: transparent;
-  color: var(--text-secondary);
-  border-color: var(--border);
-  font-size: 0.75rem;
-  padding: 6px 10px;
-}
-.btn-unsubscribe:hover:not(:disabled) {
-  background: var(--red-bg);
-  color: var(--red);
-  border-color: var(--red);
-}
-.subscribe-msg {
-  font-size: 0.82rem;
+  text-decoration: none;
   white-space: nowrap;
 }
-.subscribe-msg.success { color: var(--green); }
-.subscribe-msg.warning { color: var(--yellow); }
-.subscribe-msg.error { color: var(--red); }
+.btn-feishu:hover { opacity: 0.9; }
+.btn-feishu-outline {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.btn-feishu-outline:hover { background: var(--accent); color: #fff; }
 
 /* ── Shared Button ── */
 .btn {
