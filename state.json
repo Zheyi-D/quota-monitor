@@ -403,7 +403,7 @@
     "09/10/2026|RHK|K": "no-quotaK",
     "09/10/2026|RKO|R": "quota-r",
     "09/10/2026|RKO|K": "no-quotaK",
-    "09/10/2026|RTK|R": "quota-y",
+    "09/10/2026|RTK|R": "quota-r",
     "09/10/2026|RTK|K": "no-quotaK",
     "09/10/2026|TMO|R": "quota-r",
     "09/10/2026|TMO|K": "no-quotaK",
@@ -1154,5 +1154,5 @@
     "11/25/2026|YLO|R": "quota-g",
     "11/25/2026|YLO|K": "no-quotaK"
   },
-  "last_snapshot_time": "2026-08-02T22:38:25"
+  "last_snapshot_time": "2026-08-02T22:41:27"
 }
