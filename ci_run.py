@@ -276,16 +276,24 @@ def main():
                 for sub in feishu_subs:
                     open_id = sub.get("open_id", "")
                     user_dates = sub.get("dates") or []
+                    user_offices = sub.get("offices") or []
                     if not open_id:
                         continue
-                    if not user_dates or any(d in released_dates for d in user_dates):
-                        dm_lines = ["## 🔔 你关注的日期有新增配额！\n"]
-                        for (date, office, qtype), old_s, new_s in changes["newly_available"]:
-                            if not user_dates or date in user_dates:
-                                office_name = DEFAULT_OFFICES.get(office, office)
-                                dm_lines.append(f"  • {date}  {office_name}({office})")
-                        dm_lines.append(f"\n📋 [预约办理]({BOOKING_URL}) ｜ 📊 [实时看板]({DASHBOARD_URL})")
-                        dms_to_send.append((open_id, "\n".join(dm_lines)))
+                    date_match = (not user_dates or any(d in released_dates for d in user_dates))
+                    if not date_match:
+                        continue
+                    dm_lines = ["## 🔔 你关注的日期有新增配额！\n"]
+                    for (date, office, qtype), old_s, new_s in changes["newly_available"]:
+                        if user_dates and date not in user_dates:
+                            continue
+                        if user_offices and office not in user_offices:
+                            continue
+                        office_name = DEFAULT_OFFICES.get(office, office)
+                        dm_lines.append(f"  • {date}  {office_name}({office})")
+                    if len(dm_lines) == 1:
+                        continue  # no matching changes for this user
+                    dm_lines.append(f"\n📋 [预约办理]({BOOKING_URL}) ｜ 📊 [实时看板]({DASHBOARD_URL})")
+                    dms_to_send.append((open_id, "\n".join(dm_lines)))
 
                 dm_sent = 0
                 if dms_to_send:

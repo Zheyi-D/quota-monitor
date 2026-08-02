@@ -164,17 +164,44 @@ async function sendTextDM(openId, text) {
   });
 }
 
+// ── 办事处常量 ──────────────────────────────────────────────────────
+
+const OFFICES = {
+  FTO: "火炭", RHK: "港岛", RKO: "九龙",
+  RTK: "将军澳", TMO: "屯门", YLO: "元朗",
+};
+const OFFICE_CODES = Object.keys(OFFICES);
+
+// ── 用户状态（多步骤交互）──────────────────────────────────────────
+
+const userState = new Map(); // openId -> { mode, selectedOffices: Set }
+
+function getUserState(openId) {
+  if (!userState.has(openId)) {
+    userState.set(openId, { mode: null, selectedOffices: new Set() });
+  }
+  return userState.get(openId);
+}
+
+function clearUserState(openId) {
+  userState.delete(openId);
+}
+
 // ── 卡片构建 ──────────────────────────────────────────────────────────
 
 function buildWelcomeCard() {
   return {
     header: { title: { content: "🤖 HKID 放号通知", tag: "plain_text" }, template: "blue" },
     elements: [
-      { tag: "markdown", content: "当**你关注的日期**放出新名额时，我会第一时间私聊通知你。\n\n群聊广播已覆盖全量通知，私聊可以**按日期过滤**——只看你关心的那天。" },
+      { tag: "markdown", content: "当**你关注的日期和办事处**放出新名额时，我会第一时间私聊通知你。\n\n群聊广播已覆盖全量通知，私聊可以**按日期、按办事处**精细过滤。" },
       { tag: "hr" },
       { tag: "action", actions: [
-        { tag: "button", text: { tag: "plain_text", content: "📅 订阅特定日期" }, type: "primary", value: "sub_pick" },
-        { tag: "button", text: { tag: "plain_text", content: "🔔 订阅全部日期" }, type: "default", value: "sub_all" },
+        { tag: "button", text: { tag: "plain_text", content: "📅 按日期订阅" }, type: "primary", value: "sub_pick_date" },
+        { tag: "button", text: { tag: "plain_text", content: "🏢 按办事处订阅" }, type: "default", value: "sub_pick_office" },
+      ]},
+      { tag: "action", actions: [
+        { tag: "button", text: { tag: "plain_text", content: "🎯 按日期+办事处" }, type: "default", value: "sub_pick_both" },
+        { tag: "button", text: { tag: "plain_text", content: "🔔 订阅全部" }, type: "default", value: "sub_all" },
       ]},
       { tag: "action", actions: [
         { tag: "button", text: { tag: "plain_text", content: "📊 我的订阅" }, type: "default", value: "my_subs" },
@@ -202,17 +229,62 @@ function buildSubPickCard() {
   };
 }
 
-function buildConfirmCard(dates, mode) {
+function buildOfficePickCard(selectedOffices) {
+  const sel = selectedOffices || new Set();
+  const rows = [];
+  // Build button rows, 2 per row, marking selected with ✓
+  for (let i = 0; i < OFFICE_CODES.length; i += 2) {
+    const btns = [];
+    for (let j = i; j < i + 2 && j < OFFICE_CODES.length; j++) {
+      const code = OFFICE_CODES[j];
+      const name = OFFICES[code];
+      const isSel = sel.has(code);
+      btns.push({
+        tag: "button",
+        text: { tag: "plain_text", content: isSel ? `✓ ${name}` : name },
+        type: isSel ? "primary" : "default",
+        value: `pick_office:${code}`,
+      });
+    }
+    rows.push({ tag: "action", actions: btns });
+  }
+  const selectedList = sel.size > 0
+    ? `\n\n已选：${[...sel].map(c => OFFICES[c]).join("、")}`
+    : "";
+
+  return {
+    header: { title: { content: "🏢 选择办事处", tag: "plain_text" }, template: "blue" },
+    elements: [
+      { tag: "markdown", content: `请选择你关注的办事处（可多选，点击切换）：${selectedList}` },
+      ...rows,
+      { tag: "action", actions: [
+        { tag: "button", text: { tag: "plain_text", content: "✅ 确认选择" }, type: "primary", value: "confirm_offices" },
+        { tag: "button", text: { tag: "plain_text", content: "全选" }, type: "default", value: "select_all_offices" },
+      ]},
+    ],
+  };
+}
+
+function buildConfirmCard(dates, offices, mode) {
   let markdown;
   if (mode === "all") {
-    markdown = "✅ 已订阅**全部日期**通知\n\n所有办事处放号时都会私聊通知你。";
+    markdown = "✅ 已订阅**全部**通知\n\n所有日期、所有办事处放号时都会私聊通知你。";
   } else {
-    const list = dates.slice(0, 20).map(d => {
-      const [m, d2] = d.split("/");
-      return `${parseInt(m)}/${parseInt(d2)}`;
-    }).join("、");
-    const more = dates.length > 20 ? `\n…还有 ${dates.length - 20} 个日期` : "";
-    markdown = `✅ 已订阅 **${dates.length}** 个日期\n\n${list}${more}\n\n仅当这些日期放号时通知你。`;
+    const parts = [];
+    if (dates.length > 0) {
+      const list = dates.slice(0, 15).map(d => { const [m, d2] = d.split("/"); return `${parseInt(m)}/${parseInt(d2)}`; }).join("、");
+      const more = dates.length > 15 ? ` …+${dates.length - 15}` : "";
+      parts.push(`📅 ${list}${more}`);
+    } else {
+      parts.push("📅 所有日期");
+    }
+    if (offices.length > 0) {
+      const names = offices.map(c => OFFICES[c] || c).join("、");
+      parts.push(`🏢 ${names}`);
+    } else {
+      parts.push("🏢 所有办事处");
+    }
+    markdown = "✅ 订阅成功\n\n" + parts.join("\n") + "\n\n仅当匹配的日期和办事处放号时通知你。";
   }
   return {
     header: { title: { content: "✅ 订阅成功", tag: "plain_text" }, template: "green" },
@@ -227,39 +299,56 @@ function buildConfirmCard(dates, mode) {
 }
 
 function buildStatusCard(entry) {
-  if (entry && entry.dates && entry.dates.length === 0) {
+  // Determine mode
+  const hasDates = entry && entry.dates && entry.dates.length > 0;
+  const hasOffices = entry && entry.offices && entry.offices.length > 0;
+
+  if (entry && !hasDates && !hasOffices) {
     return {
       header: { title: { content: "📊 我的订阅", tag: "plain_text" }, template: "blue" },
       elements: [
-        { tag: "markdown", content: "当前订阅：**全部日期**\n\n所有放号都会通知你。" },
+        { tag: "markdown", content: "当前订阅：**全部**\n\n所有日期、所有办事处放号都会通知你。" },
         { tag: "action", actions: [
-          { tag: "button", text: { tag: "plain_text", content: "🔥 修改为特定日期" }, type: "default", value: "sub_pick" },
+          { tag: "button", text: { tag: "plain_text", content: "🔥 修改订阅" }, type: "default", value: "sub_pick" },
           { tag: "button", text: { tag: "plain_text", content: "❌ 取消订阅" }, type: "danger", value: "unsub" },
         ]},
       ],
     };
   }
-  if (!entry || !entry.dates) {
+  if (!entry) {
     return {
       header: { title: { content: "📊 我的订阅", tag: "plain_text" }, template: "blue" },
       elements: [
-        { tag: "markdown", content: "你还没有订阅日期通知。\n\n订阅后，当关注的日期放号时会私聊通知你。" },
+        { tag: "markdown", content: "你还没有订阅通知。\n\n订阅后，当关注的日期/办事处放号时会私聊通知你。" },
         { tag: "action", actions: [
-          { tag: "button", text: { tag: "plain_text", content: "📅 订阅特定日期" }, type: "primary", value: "sub_pick" },
-          { tag: "button", text: { tag: "plain_text", content: "🔔 订阅全部日期" }, type: "default", value: "sub_all" },
+          { tag: "button", text: { tag: "plain_text", content: "📅 按日期订阅" }, type: "primary", value: "sub_pick_date" },
+          { tag: "button", text: { tag: "plain_text", content: "🏢 按办事处订阅" }, type: "default", value: "sub_pick_office" },
+          { tag: "button", text: { tag: "plain_text", content: "🔔 订阅全部" }, type: "default", value: "sub_all" },
         ]},
       ],
     };
   }
-  const list = entry.dates.slice(0, 30).map(d => {
-    const [m, d2] = d.split("/");
-    return `${parseInt(m)}/${parseInt(d2)}`;
-  }).join("、");
-  const more = entry.dates.length > 30 ? `\n…还有 ${entry.dates.length - 30} 个日期` : "";
+
+  const parts = [];
+  if (hasDates) {
+    const list = entry.dates.slice(0, 30).map(d => { const [m, d2] = d.split("/"); return `${parseInt(m)}/${parseInt(d2)}`; }).join("、");
+    const more = entry.dates.length > 30 ? `\n…还有 ${entry.dates.length - 30} 个日期` : "";
+    parts.push(`📅 **${entry.dates.length}** 个日期\n${list}${more}`);
+  } else {
+    parts.push("📅 所有日期");
+  }
+  if (hasOffices) {
+    const names = entry.offices.map(c => OFFICES[c] || c).join("、");
+    parts.push(`🏢 ${names}`);
+  } else {
+    parts.push("🏢 所有办事处");
+  }
+  const markdown = parts.join("\n\n") + `\n\n订阅时间：${entry.subscribed_at ? entry.subscribed_at.slice(0, 10) : "未知"}`;
+
   return {
     header: { title: { content: "📊 我的订阅", tag: "plain_text" }, template: "blue" },
     elements: [
-      { tag: "markdown", content: `已订阅 **${entry.dates.length}** 个日期\n\n${list}${more}\n\n订阅时间：${entry.subscribed_at ? entry.subscribed_at.slice(0, 10) : "未知"}` },
+      { tag: "markdown", content: markdown },
       { tag: "action", actions: [
         { tag: "button", text: { tag: "plain_text", content: "🔥 修改订阅" }, type: "default", value: "sub_pick" },
         { tag: "button", text: { tag: "plain_text", content: "❌ 取消订阅" }, type: "danger", value: "unsub" },
@@ -317,58 +406,133 @@ async function buildShowDatesCard() {
 
 async function handleText(openId, text) {
   const trimmed = text.trim();
+  const state = getUserState(openId);
 
   // 全部订阅
   if (/^(全部|订阅全部|所有|all|订阅所有)$/i.test(trimmed)) {
-    return await doSubscribe(openId, []);
+    clearUserState(openId);
+    return await doSubscribe(openId, [], []);
   }
   // 查看状态
   if (/^(状态|我的|查看|status|my)$/i.test(trimmed)) {
+    clearUserState(openId);
     return await doStatus(openId);
   }
   // 退订
   if (/^(退订|取消|停止|unsub|unsubscribe)$/i.test(trimmed)) {
+    clearUserState(openId);
     return await doUnsubscribe(openId);
   }
   // 帮助/菜单
   if (/^(日期|可选|帮助|help|菜单|开始)$/i.test(trimmed)) {
+    clearUserState(openId);
     return await sendDM(openId, buildWelcomeCard());
   }
-  // 日期输入
+  // Date input — check user state for mode
   if (looksLikeDates(trimmed)) {
-    return await doDateSubscribe(openId, trimmed);
+    if (state.mode === "both") {
+      // Waiting for dates after selecting offices
+      const offices = [...state.selectedOffices];
+      clearUserState(openId);
+      return await doDateSubscribe(openId, trimmed, offices);
+    }
+    // Default: date-only mode
+    clearUserState(openId);
+    return await doDateSubscribe(openId, trimmed, []);
   }
   // 默认：欢迎卡片
+  clearUserState(openId);
   return await sendDM(openId, buildWelcomeCard());
 }
 
 async function handleAction(openId, actionValue) {
+  const state = getUserState(openId);
+
+  // Office pick toggle
+  if (actionValue.startsWith("pick_office:")) {
+    const code = actionValue.slice(12);
+    if (state.selectedOffices.has(code)) {
+      state.selectedOffices.delete(code);
+    } else {
+      state.selectedOffices.add(code);
+    }
+    return await sendDM(openId, buildOfficePickCard(state.selectedOffices));
+  }
+
   switch (actionValue) {
     case "sub_all":
-      return await doSubscribe(openId, []);
+      clearUserState(openId);
+      return await doSubscribe(openId, [], []);
+
     case "sub_pick":
+      clearUserState(openId);
       return await sendDM(openId, buildSubPickCard());
+
+    case "sub_pick_date":
+      state.mode = "date";
+      return await sendDM(openId, buildSubPickCard());
+
+    case "sub_pick_office": {
+      state.mode = "office";
+      state.selectedOffices = new Set();
+      return await sendDM(openId, buildOfficePickCard(new Set()));
+    }
+
+    case "sub_pick_both": {
+      state.mode = "both";
+      state.selectedOffices = new Set();
+      return await sendDM(openId, buildOfficePickCard(new Set()));
+    }
+
+    case "select_all_offices":
+      state.selectedOffices = new Set(OFFICE_CODES);
+      return await sendDM(openId, buildOfficePickCard(state.selectedOffices));
+
+    case "confirm_offices": {
+      const offices = [...state.selectedOffices];
+      if (state.mode === "both") {
+        // Need dates next
+        return await sendDM(openId, {
+          header: { title: { content: "📅 请输入日期", tag: "plain_text" }, template: "blue" },
+          elements: [
+            { tag: "markdown", content: `已选办事处：${offices.map(c => OFFICES[c]).join("、")}\n\n请回复你想要关注的日期：\n• 单个日期：\`08/15\`\n• 多个日期：\`08/15, 08/20\`\n• 日期段：\`08/15-08/20\`` },
+          ],
+        });
+      }
+      // Office-only mode: subscribe directly
+      clearUserState(openId);
+      return await doSubscribe(openId, [], offices);
+    }
+
     case "my_subs":
+      clearUserState(openId);
       return await doStatus(openId);
+
     case "show_dates":
       return await sendDM(openId, await buildShowDatesCard());
+
     case "unsub":
+      clearUserState(openId);
       return await doUnsubscribe(openId);
+
     default:
+      clearUserState(openId);
       return await sendDM(openId, buildWelcomeCard());
   }
 }
 
-async function doSubscribe(openId, dates) {
-  const resp = await workerPost("/api/feishu-subscribe", { open_id: openId, dates });
+async function doSubscribe(openId, dates, offices) {
+  const resp = await workerPost("/api/feishu-subscribe", { open_id: openId, dates, offices });
   if (resp.ok) {
-    return await sendDM(openId, buildConfirmCard(dates, dates.length === 0 ? "all" : "pick"));
+    const isAll = dates.length === 0 && offices.length === 0;
+    return await sendDM(openId, buildConfirmCard(dates, offices, isAll ? "all" : "pick"));
   } else {
     return await sendTextDM(openId, `订阅失败：${resp.msg || "请稍后重试"}`);
   }
 }
 
-async function doDateSubscribe(openId, text) {
+async function doDateSubscribe(openId, text, offices) {
+  offices = offices || [];
   const { set: validSet } = await getQuotaDates();
   const parsed = parseDates(text, validSet);
 
@@ -388,12 +552,12 @@ async function doDateSubscribe(openId, text) {
     });
   }
 
-  const resp = await workerPost("/api/feishu-subscribe", { open_id: openId, dates: parsed.valid });
+  const resp = await workerPost("/api/feishu-subscribe", { open_id: openId, dates: parsed.valid, offices });
   if (!resp.ok) {
     return await sendTextDM(openId, `订阅失败：${resp.msg || "请稍后重试"}`);
   }
 
-  const card = buildConfirmCard(parsed.valid, "pick");
+  const card = buildConfirmCard(parsed.valid, offices, "pick");
   if (parsed.invalid.length > 0) {
     card.elements[0].content += `\n\n⚠️ 以下日期不在配额窗口内，已跳过：${parsed.invalid.join("、")}`;
   }
@@ -403,7 +567,10 @@ async function doDateSubscribe(openId, text) {
 async function doStatus(openId) {
   const resp = await workerGet(`/api/feishu-status?open_id=${encodeURIComponent(openId)}`);
   if (resp.ok) {
-    return await sendDM(openId, buildStatusCard(resp.subscribed ? { dates: resp.dates, subscribed_at: "" } : null));
+    const entry = resp.subscribed
+      ? { dates: resp.dates, offices: resp.offices, subscribed_at: resp.subscribed_at || "" }
+      : null;
+    return await sendDM(openId, buildStatusCard(entry));
   } else {
     return await sendDM(openId, buildStatusCard(null));
   }

@@ -112,7 +112,7 @@ const FEISHU_MSG_URL = "https://open.feishu.cn/open-apis/im/v1/messages";
 
 // ── Event Log Helper ───────────────────────────────────────────────
 
-async function appendFeishuLog(env, action, openId, dates) {
+async function appendFeishuLog(env, action, openId, dates, offices) {
   try {
     const { raw: log, sha } = await readJSON(env, "data/feishu_subs_log.json");
     const list = Array.isArray(log) ? log : [];
@@ -121,6 +121,7 @@ async function appendFeishuLog(env, action, openId, dates) {
       action,
       open_id: openId,
       dates: dates || [],
+      offices: offices || [],
     });
     // Keep last 500 entries
     const trimmed = list.length > 500 ? list.slice(-500) : list;
@@ -205,19 +206,20 @@ export default {
       try { body = await request.json(); } catch { return json({ok:false,msg:"bad json"},400); }
       const openId = (body.open_id || "").trim();
       const dates = Array.isArray(body.dates) ? body.dates : [];
+      const offices = Array.isArray(body.offices) ? body.offices : [];
       if (!openId) return json({ok:false,msg:"open_id required"},400);
 
       try {
         const { raw: subs, sha } = await readJSON(env, "data/feishu_subs.json");
         const list = Array.isArray(subs) ? subs : [];
         const idx = list.findIndex(s => s.open_id === openId);
-        const entry = { open_id: openId, dates, subscribed_at: new Date().toISOString() };
+        const entry = { open_id: openId, dates, offices, subscribed_at: new Date().toISOString() };
         const action = idx >= 0 ? "updated" : "subscribed";
         if (idx >= 0) list[idx] = entry;
         else list.push(entry);
         await writeJSON(env, "data/feishu_subs.json", list, sha, `Feishu ${action}: ${openId}`);
-        await appendFeishuLog(env, "subscribe", openId, dates);
-        return json({ ok: true, open_id: openId, dates, action });
+        await appendFeishuLog(env, "subscribe", openId, dates, offices);
+        return json({ ok: true, open_id: openId, dates, offices, action });
       } catch (err) {
         return json({ ok: false, msg: err.message }, 500);
       }

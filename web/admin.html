@@ -292,25 +292,37 @@ function renderDmTable(filter) {
   document.getElementById("dmCount").textContent = dmList.length;
   const tbody = document.getElementById("dmTable");
   if (list.length === 0) { tbody.innerHTML = '<tr><td style="text-align:center;color:var(--text2);padding:24px">无数据</td></tr>'; return; }
+
+  const OFFICES = {FTO:"火炭",RHK:"港岛",RKO:"九龙",RTK:"将军澳",TMO:"屯门",YLO:"元朗"};
+
   tbody.innerHTML = list.map(s => {
     const shortId = s.open_id.slice(0, 14) + "…" + s.open_id.slice(-4);
-    const mode = (!s.dates || s.dates.length === 0) ? '<span style="color:var(--accent)">全部日期</span>' : s.dates.length + ' 个日期';
+    const dateMode = (!s.dates || s.dates.length === 0) ? '全部' : s.dates.length + '个';
+    const officeMode = (!s.offices || s.offices.length === 0) ? '全部' : s.offices.map(c => OFFICES[c]||c).join('、');
     const subTime = s.subscribed_at ? s.subscribed_at.slice(0, 10) : "?";
     const expanded = dmExpanded[s.open_id];
-    let dateDetail = "";
-    if (s.dates && s.dates.length > 0) {
-      const short = s.dates.slice(0, 20).map(d => { const [m,d2] = d.split("/"); return parseInt(m)+"/"+parseInt(d2); }).join("、");
-      const more = s.dates.length > 20 ? ` …+${s.dates.length-20}` : "";
-      dateDetail = short + more;
+    let detail = "";
+    if (expanded) {
+      const parts = [];
+      if (s.dates && s.dates.length > 0) {
+        const short = s.dates.slice(0, 20).map(d => { const [m,d2] = d.split("/"); return parseInt(m)+"/"+parseInt(d2); }).join("、");
+        const more = s.dates.length > 20 ? ` …+${s.dates.length-20}` : "";
+        parts.push("📅 " + short + more);
+      }
+      if (s.offices && s.offices.length > 0) {
+        parts.push("🏢 " + s.offices.map(c => OFFICES[c]||c).join('、'));
+      }
+      if (parts.length > 0) detail = parts.join(" ｜ ");
     }
     return `<tr class="detail-row" onclick="toggleDm('${s.open_id}')" title="点击展开/收起">
       <td style="width:20px">${expanded ? '▼' : '▶'}</td>
       <td class="mono">${shortId}</td>
-      <td>${mode}</td>
+      <td style="font-size:0.82rem">📅 ${dateMode}</td>
+      <td style="font-size:0.82rem">🏢 ${officeMode}</td>
       <td style="color:var(--text2)">${subTime}</td>
       <td style="text-align:right"><button class="btn btn-danger btn-sm" onclick="event.stopPropagation();delDm('${s.open_id}')">删除</button></td>
     </tr>
-    ${expanded && dateDetail ? `<tr class="detail-body"><td colspan="5">📅 ${dateDetail}</td></tr>` : ""}`;
+    ${expanded && detail ? `<tr class="detail-body"><td colspan="6">${esc(detail)}</td></tr>` : ""}`;
   }).join("");
 }
 function toggleDm(oid) { dmExpanded[oid] = !dmExpanded[oid]; renderDmTable(); }
