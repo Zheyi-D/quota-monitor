@@ -233,16 +233,18 @@ export default {
         const dmAll = dmList.filter(s => !s.dates || s.dates.length === 0).length;
         const dmPick = dmList.filter(s => s.dates && s.dates.length > 0).length;
 
-        // Daily stats from log (non-fatal: file may not exist yet)
-        let dailyNew = 0, dailyUnsub = 0, everSubscribed = dmActive;
-        try {
-          const { raw: log } = await readJSON(env, "data/feishu_subs_log.json");
-          const logList = Array.isArray(log) ? log : [];
-          const today = new Date().toISOString().slice(0, 10);
-          dailyNew = logList.filter(e => e.action === "subscribe" && e.time.slice(0,10) === today).length;
-          dailyUnsub = logList.filter(e => e.action === "unsubscribe" && e.time.slice(0,10) === today).length;
-          everSubscribed = new Set(logList.map(e => e.open_id)).size;
-        } catch (_) { /* log file read failed, use dmActive as fallback */ }
+	        // Daily stats from log (non-fatal: file may not exist yet)
+	        let dailyNew = 0, dailyUnsub = 0;
+	        const everIds = new Set(dmList.map(s => s.open_id));
+	        try {
+	          const { raw: log } = await readJSON(env, "data/feishu_subs_log.json");
+	          const logList = Array.isArray(log) ? log : [];
+	          const today = new Date().toISOString().slice(0, 10);
+	          dailyNew = logList.filter(e => e.action === "subscribe" && e.time.slice(0,10) === today).length;
+	          dailyUnsub = logList.filter(e => e.action === "unsubscribe" && e.time.slice(0,10) === today).length;
+	          logList.forEach(e => everIds.add(e.open_id));
+	        } catch (_) { /* log file read failed, use dmActive as fallback */ }
+	        const everSubscribed = everIds.size;
 
         return json({ ok: true, email_count: emailCount, dm_active: dmActive, dm_all: dmAll, dm_pick: dmPick, dm_daily_new: dailyNew, dm_daily_unsub: dailyUnsub, dm_ever: everSubscribed });
       } catch (err) {
