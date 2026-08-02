@@ -67,13 +67,33 @@ Worker 承担**邮箱订阅/退订**、**飞书 DM 订阅 API**、**管理后台
 
 | 变量 | 说明 |
 |------|------|
-| `GITHUB_TOKEN` | GitHub Personal Access Token（repo scope） |
+| `GITHUB_TOKEN` | **Fine-grained PAT**：仅本仓库、Contents Read+Write（不含 Workflows），详见下方安全配置指引 |
 | `GITHUB_REPO` | `Zheyi-D/quota-monitor` |
 | `ENCRYPTION_KEY` | 与 GitHub Secrets 中相同的 AES 密钥 |
-| `ADMIN_PASSWORD` | 管理后台密码 |
+| `ADMIN_PASSWORD` | 管理后台密码（仅在 `/api/admin/login` 使用） |
+| `ADMIN_TOKEN_SECRET` | HMAC-SHA256 签名密钥（32 字节随机字符串，与 `ADMIN_PASSWORD` 独立配置） |
 | `FEISHU_APP_ID` | 飞书自建应用 App ID |
 | `FEISHU_APP_SECRET` | 飞书自建应用 App Secret |
 | `FEISHU_CHAT_ID` | 目标群聊 chat_id（支持逗号分隔多群） |
+
+### GitHub Token 安全配置指引
+
+**必须使用 GitHub Fine-grained Personal Access Token**，不要使用 classic PAT（`repo` scope 权限过宽）。
+
+创建方式：
+1. GitHub → Settings → Developer settings → Fine-grained tokens → Generate new token
+2. Repository access：仅选中本仓库（`Zheyi-D/quota-monitor`）
+3. Permissions：只勾选 **Contents: Read and write**
+4. **明确不要勾选 Workflows 权限** — 这样即使 token 泄露，GitHub 也会拒绝对 `.github/workflows/*.yml` 的写入（403），阻断"Worker 被攻破 → 篡改 CI 工作流 → 供应链攻击"路径
+
+> 如果未来订阅者数量增长、希望进一步降低风险，可以将 `data/` 目录迁移到独立仓库（可设为 private），Worker 的 token 只指向数据仓库，与存放代码和 CI 工作流的仓库完全隔离。
+
+### Admin 认证机制
+
+Admin 后台已改为 **HMAC-SHA256 Token 认证**：
+- 用户凭密码调用 `POST /api/admin/login` 获取 2 小时有效期的 signed token
+- 后续所有 admin 接口通过 `Authorization: Bearer <token>` 鉴权
+- 密码不再随每次请求明文传输，也不存储在 localStorage 中
 
 ---
 
@@ -272,10 +292,13 @@ CI 检测到 `newly_available` 变化时，通过 GitHub API 追加到 `data/run
 | 💬 DM 订阅 | 查看/搜索/展开/删除 DM 订阅者，统计全部/特定日期分布 |
 | 📢 群发 | 群聊广播（多群并发）+ 私聊群发（串行 0.5s/人） |
 
+所有 Admin API 通过 `Authorization: Bearer <token>` 鉴权（HMAC-SHA256 签名，有效期 2 小时），登录端点除外。
+
 ### 后台 API（Worker `/api/admin/*`）
 
 | 端点 | 用途 |
 |------|------|
+| `POST /api/admin/login` | 密码登录，返回 signed token（2h 有效期） |
 | `POST /api/admin/stats` | 返回订阅统计（邮件数、DM 活跃/新增/退订/历史累计） |
 | `POST /api/admin/subscribers` | 返回解密后的邮件列表 |
 | `POST /api/admin/dm-subscribers` | 返回解密后的 DM 订阅列表 |

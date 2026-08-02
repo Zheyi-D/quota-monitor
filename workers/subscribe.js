@@ -132,12 +132,58 @@ async function appendFeishuLog(env, action, openId, dates) {
   } catch { /* best-effort */ }
 }
 
-// ── Password Check Helper ──────────────────────────────────────────
+// ── Auth: HMAC Token ──────────────────────────────────────────────
 
-function checkAdmin(env, body) {
-  const pwd = env.ADMIN_PASSWORD;
-  if (!pwd) return false;
-  return body && body.password === pwd;
+function timingSafeEqual(a, b) {
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
+}
+
+async function getTokenKey(env) {
+  const secret = env.ADMIN_TOKEN_SECRET;
+  if (!secret) throw new Error("ADMIN_TOKEN_SECRET not configured");
+  const raw = new TextEncoder().encode(secret);
+  return await crypto.subtle.importKey("raw", raw, { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
+}
+
+async function signToken(payload, key) {
+  const encoded = new TextEncoder().encode(payload);
+  const sig = await crypto.subtle.sign("HMAC", key, encoded);
+  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig)));
+  const payloadB64 = btoa(payload);
+  return `${payloadB64}.${sigB64}`;
+}
+
+async function verifyToken(tokenStr, key) {
+  try {
+    const dot = tokenStr.lastIndexOf(".");
+    if (dot < 0) return null;
+    const payloadB64 = tokenStr.slice(0, dot);
+    const sigB64 = tokenStr.slice(dot + 1);
+    const payload = atob(payloadB64);
+    const sig = Uint8Array.from(atob(sigB64), c => c.charCodeAt(0));
+    const data = new TextEncoder().encode(payload);
+    const ok = await crypto.subtle.verify("HMAC", key, sig, data);
+    if (!ok) return null;
+    const parsed = JSON.parse(payload);
+    if (parsed.exp && Date.now() / 1000 > parsed.exp) return null;
+    return parsed;
+  } catch { return null; }
+}
+
+async function authToken(env, request) {
+  const header = request.headers.get("Authorization") || "";
+  if (!header.startsWith("Bearer ")) return false;
+  const token = header.slice(7);
+  try {
+    const key = await getTokenKey(env);
+    const payload = await verifyToken(token, key);
+    return !!payload;
+  } catch { return false; }
 }
 
 // ── Main Handler ────────────────────────────────────────────────────
@@ -213,13 +259,35 @@ export default {
       }
     }
 
-    // ── Admin APIs (all require password) ────────────────────────────
+    // ── Admin Login ─────────────────────────────────────────────────
+
+    if (request.method === "POST" && url.pathname === "/api/admin/login") {
+      let body;
+      try { body = await request.json(); } catch { return json({ok:false,msg:"bad json"},400); }
+      const pwd = env.ADMIN_PASSWORD;
+      if (!pwd) return json({ok:false,msg:"ADMIN_PASSWORD not configured"},500);
+      const input = (body.password || "");
+      // Constant-time comparison + artificial delay to resist brute-force
+      const valid = timingSafeEqual(input, pwd);
+      if (!valid) {
+        await new Promise(r => setTimeout(r, 500));
+        return json({ok:false,msg:"wrong password"},403);
+      }
+      try {
+        const key = await getTokenKey(env);
+        const exp = Math.floor(Date.now() / 1000) + 7200; // 2 hours
+        const token = await signToken(JSON.stringify({exp}), key);
+        return json({ok:true, token, expires_in: 7200});
+      } catch (err) {
+        return json({ok:false,msg:err.message},500);
+      }
+    }
+
+    // ── Admin APIs (require Bearer token) ──────────────────────────
 
     // Stats
     if (request.method === "POST" && url.pathname === "/api/admin/stats") {
-      let body;
-      try { body = await request.json(); } catch { return json({ok:false,msg:"bad json"},400); }
-      if (!checkAdmin(env, body)) return json({ok:false,msg:"unauthorized"},403);
+      if (!(await authToken(env, request))) return json({ok:false,msg:"unauthorized"},401);
 
       try {
         // Email count
@@ -255,9 +323,7 @@ export default {
 
     // Email subscriber list
     if (request.method === "POST" && url.pathname === "/api/admin/subscribers") {
-      let body;
-      try { body = await request.json(); } catch { return json({ok:false,msg:"bad json"},400); }
-      if (!checkAdmin(env, body)) return json({ok:false,msg:"unauthorized"},403);
+      if (!(await authToken(env, request))) return json({ok:false,msg:"unauthorized"},401);
 
       try {
         const { raw: emails } = await readJSON(env, "data/subscribers.json");
@@ -270,9 +336,7 @@ export default {
 
     // DM subscriber list
     if (request.method === "POST" && url.pathname === "/api/admin/dm-subscribers") {
-      let body;
-      try { body = await request.json(); } catch { return json({ok:false,msg:"bad json"},400); }
-      if (!checkAdmin(env, body)) return json({ok:false,msg:"unauthorized"},403);
+      if (!(await authToken(env, request))) return json({ok:false,msg:"unauthorized"},401);
 
       try {
         const { raw: dmSubs } = await readJSON(env, "data/feishu_subs.json");
@@ -287,7 +351,7 @@ export default {
     if (request.method === "POST" && url.pathname === "/api/admin/dm-send") {
       let body;
       try { body = await request.json(); } catch { return json({ok:false,msg:"bad json"},400); }
-      if (!checkAdmin(env, body)) return json({ok:false,msg:"unauthorized"},403);
+      if (!(await authToken(env, request))) return json({ok:false,msg:"unauthorized"},401);
 
       const text = (body.text || "").trim();
       if (!text || text.length > 4000) return json({ ok: false, msg: "text empty or too long (max 4000)" }, 400);
@@ -405,14 +469,10 @@ export default {
     // ── Admin send to Feishu group ────────────────────────────────────
 
     if (request.method === "POST" && url.pathname === "/api/admin-send") {
-      const password = env.ADMIN_PASSWORD;
-      if (!password) return json({ ok: false, msg: "ADMIN_PASSWORD not configured" }, 500);
+      if (!(await authToken(env, request))) return json({ok:false,msg:"unauthorized"},401);
 
       let body;
       try { body = await request.json(); } catch { return json({ ok: false, msg: "bad json" }, 400); }
-      if (body.password !== password) return json({ ok: false, msg: "wrong password" }, 403);
-
-      if (body.auth_only) return json({ ok: true, msg: "auth ok" });
 
       const text = (body.text || "").trim();
       if (!text || text.length > 4000) return json({ ok: false, msg: "text empty or too long (max 4000)" }, 400);

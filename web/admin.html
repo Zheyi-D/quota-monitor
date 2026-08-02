@@ -158,9 +158,8 @@ input[type="password"] { width: 100%; margin-bottom: 12px; }
 <script>
 const WORKER = "https://quota-monitor.deng-zheyi.workers.dev";
 const AUTH_KEY = "qm_admin_auth2";
-const AUTH_TTL = 24 * 3600 * 1000;
 
-let pwd = "";
+let token = "";
 let emailList = [], dmList = [];
 
 // ── Login ────────────────────────────────────────────
@@ -173,8 +172,8 @@ const loginMsg = document.getElementById("loginMsg");
 function checkAuth() {
   try {
     const stored = JSON.parse(localStorage.getItem(AUTH_KEY) || "{}");
-    if (stored.p && stored.exp && Date.now() < stored.exp) {
-      pwd = stored.p;
+    if (stored.token && stored.exp && Date.now() < stored.exp) {
+      token = stored.token;
       showMain();
       return;
     }
@@ -187,13 +186,14 @@ async function doLogin() {
   if (!pw) return showLMsg("请输入密码", false);
   loginBtn.disabled = true;
   try {
-    const resp = await fetch(`${WORKER}/api/admin-send`, {
+    const resp = await fetch(`${WORKER}/api/admin/login`, {
       method: "POST", headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ password: pw, auth_only: true }),
+      body: JSON.stringify({ password: pw }),
     });
-    if (resp.status === 200) {
-      localStorage.setItem(AUTH_KEY, JSON.stringify({ p: pw, exp: Date.now() + AUTH_TTL }));
-      pwd = pw;
+    const data = await resp.json();
+    if (resp.ok && data.token) {
+      localStorage.setItem(AUTH_KEY, JSON.stringify({ token: data.token, exp: Date.now() + data.expires_in * 1000 }));
+      token = data.token;
       showLMsg("✅ ok", true);
       showMain();
     } else {
@@ -208,7 +208,7 @@ pwdInput.addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); })
 
 document.getElementById("logoutBtn").addEventListener("click", () => {
   localStorage.removeItem(AUTH_KEY);
-  pwd = "";
+  token = "";
   mainView.classList.add("hidden");
   loginView.classList.remove("hidden");
   pwdInput.value = "";
@@ -234,11 +234,23 @@ function switchTab(name) {
 }
 
 // ── Data loading ──────────────────────────────────────
+function handle401() {
+  localStorage.removeItem(AUTH_KEY);
+  token = "";
+  mainView.classList.add("hidden");
+  loginView.classList.remove("hidden");
+  pwdInput.value = "";
+  pwdInput.focus();
+  showLMsg("登录已过期，请重新输入密码", false);
+}
+
 async function post(path, body) {
   const resp = await fetch(`${WORKER}${path}`, {
-    method: "POST", headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({ ...body, password: pwd }),
+    method: "POST",
+    headers: {"Content-Type":"application/json", "Authorization": `Bearer ${token}`},
+    body: body ? JSON.stringify(body) : undefined,
   });
+  if (resp.status === 401) { handle401(); return {ok:false}; }
   return resp.json();
 }
 
@@ -360,9 +372,11 @@ document.getElementById("sendGroupBtn").addEventListener("click", async () => {
   showSend("发送中...", true);
   try {
     const resp = await fetch(`${WORKER}/api/admin-send`, {
-      method: "POST", headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ password: pwd, text }),
+      method: "POST",
+      headers: {"Content-Type":"application/json", "Authorization": `Bearer ${token}`},
+      body: JSON.stringify({ text }),
     });
+    if (resp.status === 401) { handle401(); return; }
     const data = await resp.json();
     showSend(data.ok ? `✅ ${data.msg || '已发送'}` : `❌ ${data.msg}`, data.ok);
   } catch { showSend("❌ 网络错误", false); }
