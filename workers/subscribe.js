@@ -1,5 +1,9 @@
 /**
- * quota-monitor Worker v11 — 飞书 DM 订阅 API + 管理后台 API + 管理员群发
+ * quota-monitor Worker v12 — 飞书 DM 订阅 API（支持办事处过滤）+ 管理后台 API（Token 认证）+ 管理员群发
+ *
+ * v11→v12: /api/feishu-subscribe 新增 offices 字段（可选，[]=全部办事处）
+ *          appendFeishuLog 同步记录 offices
+ *          admin DM 表格新增办事处列
  */
 
 const CORS = {
