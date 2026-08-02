@@ -145,10 +145,9 @@ def run_once(config, state_path="state.json"):
         message = format_changes(changes, offices)
         safe_print("\n" + message)
         logger.info("检测到配额变化，发送通知...")
-        subject = f"[配额监控] {datetime.now().strftime('%m/%d %H:%M')} 有变化"
-        result = send_notifications(message, subject, notify_cfg)
-        logger.info("通知结果: 飞书=%s 邮件=%d 封",
-                    "OK" if result["feishu"] else "FAIL", result["email"])
+        result = send_notifications(message, notify_cfg)
+        logger.info("通知结果: 飞书=%s",
+                    "OK" if result["feishu"] else "FAIL")
     else:
         logger.info("配额状态无变化")
         _print_summary(new_snapshot, offices)
@@ -230,10 +229,9 @@ def run_loop(config, interval, state_path="state.json"):
                     message = format_changes(changes, offices)
                     logger.info("检测到配额变化！")
                     print("\n" + message + "\n")
-                    subject = f"[配额监控] {datetime.now().strftime('%m/%d %H:%M')} 有变化"
-                    result = send_notifications(message, subject, notify_cfg)
-                    logger.info("通知: 飞书=%s 邮件=%d",
-                                "OK" if result["feishu"] else "FAIL", result["email"])
+                    result = send_notifications(message, notify_cfg)
+                    logger.info("通知: 飞书=%s",
+                                "OK" if result["feishu"] else "FAIL")
                 else:
                     # 简要汇总
                     available = sum(1 for v in new_snapshot.values()

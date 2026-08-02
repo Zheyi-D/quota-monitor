@@ -7,7 +7,7 @@ import os
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta
+from datetime import datetime
 
 # 确保模块可导入
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -20,8 +20,8 @@ from quota_monitor.core import (
     format_changes,
     has_significant_change,
 )
-from quota_monitor.notify import send_email_smtp, send_feishu_api, send_feishu_dm, send_feishu_webhook
-from quota_monitor.state import load_state, save_state
+from quota_monitor.notify import send_feishu_api, send_feishu_dm, send_feishu_webhook
+from quota_monitor.state import load_state
 
 logging.basicConfig(
     level=logging.INFO,
@@ -231,7 +231,7 @@ def main():
     changes = detect_changes(old_snapshot, snapshot)
 
     # ── 4. 发送通知 ──
-    notify_result = {"feishu": None, "email": 0, "welcome": 0, "feishu_dm": 0}
+    notify_result = {"feishu": None, "feishu_dm": 0}
     if is_first_run:
         logger.info("首次运行，基准快照已建立，不发送通知")
         _append_run_log("INIT | 首次运行，基准快照已建立")
@@ -303,33 +303,7 @@ def main():
                     logger.info("飞书 DM 通知: %d/%d", dm_sent, len(feishu_subs))
                 notify_result["feishu_dm"] = dm_sent
 
-        # 邮件通知
-        smtp_user = os.environ.get("SMTP_USERNAME", "")
-        smtp_pass = os.environ.get("SMTP_PASSWORD", "")
-        if smtp_user and smtp_pass:
-            subscribers = []
-            secret_subs = os.environ.get("EMAIL_SUBSCRIBERS", "")
-            if secret_subs:
-                try:
-                    subscribers.extend(json.loads(secret_subs))
-                except json.JSONDecodeError:
-                    pass
-            subs_file = "data/subscribers.json"
-            web_subs = _load_json_encrypted(subs_file)
-            if web_subs and isinstance(web_subs, list):
-                for addr in web_subs:
-                    if addr not in subscribers:
-                        subscribers.append(addr)
-            if subscribers:
-                bj_now = _time.strftime("%m/%d %H:%M", _time.gmtime(_time.time() + 8 * 3600))
-                subject = f"[配额监控] {bj_now} 有变化"
-                sent_count = 0
-                for addr in subscribers:
-                    email_body = _email_html("🔔 新预约配额放出！", message) + _email_footer(addr)
-                    if send_email_smtp(addr, subject, email_body, smtp_user, smtp_pass):
-                        sent_count += 1
-                logger.info("邮件通知: %d/%d", sent_count, len(subscribers))
-                notify_result["email"] = sent_count
+        # 邮件通知已下架
 
         # 写日志
         _append_notify_log({
@@ -337,7 +311,6 @@ def main():
             "event": "quota_change",
             "changes": len(changes.get("newly_available", [])),
             "feishu": notify_result["feishu"],
-            "email": notify_result["email"],
             "feishu_dm": notify_result.get("feishu_dm", 0),
             "summary": f"配额变化: {len(changes.get('newly_available',[]))} 个日期"
         })
@@ -354,118 +327,13 @@ def main():
     # ── 5. 保存状态（通过 GitHub API 直接写入，避免 git push 不可靠导致重复通知）──
     _save_state_remote("state.json", snapshot)
 
-    # ── 6. 一次性初始化 welcomed.json ──
-    _init_welcomed()
-
     logger.info("CI Run 完成")
 
 
-def _init_welcomed():
-    """一次性初始化 welcomed.json — 把现有订阅者全部标记为已欢迎。"""
-    subs_file = "data/subscribers.json"
-    welcomed_file = "data/welcomed.json"
+# ─── URL Constants (used by DM) ───────────────────────────────────
 
-    all_subs = _load_json_encrypted(subs_file)
-    if not isinstance(all_subs, list):
-        all_subs = []
-
-    welcomed = _load_json_encrypted(welcomed_file)
-    if not isinstance(welcomed, list):
-        welcomed = []
-
-    if not welcomed and all_subs:
-        _save_json_encrypted(welcomed_file, list(all_subs))
-        logger.info("welcomed.json 已初始化，%d 位现有订阅者标记为已欢迎", len(all_subs))
-
-
-def _send_welcome_emails():
-    """检测新订阅者并发送欢迎邮件。（由 welcome.yml 调用）"""
-    smtp_user = os.environ.get("SMTP_USERNAME", "")
-    smtp_pass = os.environ.get("SMTP_PASSWORD", "")
-    if not smtp_user or not smtp_pass:
-        return
-
-    subs_file = "data/subscribers.json"
-    welcomed_file = "data/welcomed.json"
-
-    # 读取所有订阅者
-    all_subs = _load_json_encrypted(subs_file)
-    if not isinstance(all_subs, list):
-        all_subs = []
-
-    # 读取已欢迎列表
-    welcomed = _load_json_encrypted(welcomed_file)
-    if not isinstance(welcomed, list):
-        welcomed = []
-
-    # 找出新订阅者
-    new_subs = [e for e in all_subs if e not in welcomed]
-
-    if not new_subs:
-        return
-
-    welcome_body = _email_html(
-        "您已成功订阅香港入境处预约配额监控！",
-        "当各人事登记办事处放出新的换领身份证预约名额时，我们会第一时间通过邮件通知您。",
-    )
-
-    for addr in new_subs:
-        email_body = welcome_body + _email_footer(addr)
-        if send_email_smtp(addr, "[quota-monitor] 订阅确认", email_body, smtp_user, smtp_pass):
-            welcomed.append(addr)
-            logger.info("欢迎邮件已发送 (第%d封)", len(welcomed))
-        else:
-            logger.warning("欢迎邮件发送失败 (第%d封)", len(welcomed) + 1)
-
-    # 保存已欢迎列表
-    if welcomed:
-        _save_json_encrypted(welcomed_file, welcomed)
-
-    # 写日志
-    _append_notify_log({
-        "time": datetime.now().isoformat(),
-        "event": "welcome_email",
-        "sent": len(welcomed),
-        "total_new": len(new_subs),
-        "summary": f"欢迎邮件: {len(welcomed)}/{len(new_subs)}"
-    })
-
-
-# ─── HTML Email Templates ───────────────────────────────────
-
-QR_URL = "https://Zheyi-D.github.io/quota-monitor/feishu-qr.jpg"
 DASHBOARD_URL = "https://Zheyi-D.github.io/quota-monitor"
 BOOKING_URL = "https://www.gov.hk/sc/apps/immdicbooking2.htm"
-FS_GROUP_URL = "https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=49ar968e-150c-4e7f-bae4-95cae408033b"
-UNSUB_BASE = "https://quota-monitor.deng-zheyi.workers.dev/api/unsubscribe?email="
-
-
-def _email_html(title, body_text):
-    """生成带二维码的 HTML 邮件。"""
-    return f"""\
-<html><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333">
-<h2 style="color:#1a73e8">{title}</h2>
-<p style="font-size:15px;line-height:1.8">{body_text.replace(chr(10),'<br>')}</p>
-<hr style="border:none;border-top:1px solid #ddd;margin:20px 0">
-<table cellpadding="8"><tr>
-<td style="vertical-align:top;padding-right:16px">
-<b>🔗 快速入口</b><br><br>
-📊 <a href="{DASHBOARD_URL}" style="color:#1a73e8">实时看板</a><br>
-📋 <a href="{BOOKING_URL}" style="color:#1a73e8">预约办理</a><br>
-📱 <a href="{FS_GROUP_URL}" style="color:#1a73e8">加入飞书群</a>
-</td>
-<td style="text-align:center;vertical-align:top">
-<b>📱 扫码加飞书群</b><br>
-<img src="{QR_URL}" width="120" height="120" style="border-radius:8px;margin-top:4px" alt="飞书群二维码">
-</td>
-</tr></table>
-<p style="font-size:12px;color:#999;margin-top:16px">⚠️ 免责声明：本系统为第三方开源工具，非香港入境事务处官方服务。请以官网信息为准。本项目仅供学习交流，请勿用于商业盈利目的。</p>
-</body></html>"""
-
-
-def _email_footer(email_addr):
-    """邮件底部退订链接。"""
-    return f'<p style="font-size:12px;color:#aaa;margin-top:20px;border-top:1px solid #eee;padding-top:12px">不想再收到此类邮件？<a href="{UNSUB_BASE}{email_addr}" style="color:#aaa">一键退订</a></p>'
 
 
 if __name__ == "__main__":

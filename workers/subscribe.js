@@ -11,10 +11,6 @@ const CORS = {
 function json(d, s) { return new Response(JSON.stringify(d), {status:s||200, headers:{"Content-Type":"application/json",...CORS}}); }
 function html(body) { return new Response(`<!DOCTYPE html><html lang="zh-HK"><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><body style="font-family:sans-serif;text-align:center;padding:48px 16px">${body}</body></html>`, {headers:{"Content-Type":"text/html; charset=utf-8",...CORS}}); }
 
-function isValidEmail(email) {
-  return /^[^\s@]{1,100}@[^\s@]{1,100}\.[^\s@]{2,20}$/.test(email);
-}
-
 async function fetchWithTimeout(url, opts, ms) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), ms);
@@ -290,10 +286,6 @@ export default {
       if (!(await authToken(env, request))) return json({ok:false,msg:"unauthorized"},401);
 
       try {
-        // Email count
-        const { raw: emails } = await readJSON(env, "data/subscribers.json");
-        const emailCount = Array.isArray(emails) ? emails.length : 0;
-
         // DM active count
         const { raw: dmSubs } = await readJSON(env, "data/feishu_subs.json");
         const dmList = Array.isArray(dmSubs) ? dmSubs : [];
@@ -315,20 +307,7 @@ export default {
 	        } catch (_) { /* log file read failed, use dmActive as fallback */ }
 	        const everSubscribed = everIds.size;
 
-        return json({ ok: true, email_count: emailCount, dm_active: dmActive, dm_all: dmAll, dm_pick: dmPick, dm_daily_new: dailyNew, dm_daily_unsub: dailyUnsub, dm_ever: everSubscribed });
-      } catch (err) {
-        return json({ ok: false, msg: err.message }, 500);
-      }
-    }
-
-    // Email subscriber list
-    if (request.method === "POST" && url.pathname === "/api/admin/subscribers") {
-      if (!(await authToken(env, request))) return json({ok:false,msg:"unauthorized"},401);
-
-      try {
-        const { raw: emails } = await readJSON(env, "data/subscribers.json");
-        const list = Array.isArray(emails) ? emails : [];
-        return json({ ok: true, subscribers: list, total: list.length });
+        return json({ ok: true, dm_active: dmActive, dm_all: dmAll, dm_pick: dmPick, dm_daily_new: dailyNew, dm_daily_unsub: dailyUnsub, dm_ever: everSubscribed });
       } catch (err) {
         return json({ ok: false, msg: err.message }, 500);
       }
@@ -408,63 +387,6 @@ export default {
     }
 
     // ── Email Subscribe ───────────────────────────────────────────────
-
-    if (request.method === "POST" && url.pathname === "/api/subscribe") {
-      let body;
-      try { body = await request.json(); } catch { return json({ok:false,msg:"bad json"},400); }
-      const email = (body.email || "").trim().toLowerCase();
-      if (!isValidEmail(email)) return json({ok:false,msg:"bad email"},400);
-
-      try {
-        const { raw: emails, sha } = await readJSON(env, "data/subscribers.json");
-        const list = Array.isArray(emails) ? emails : [];
-        if (list.includes(email)) return json({ ok: true, already_subscribed: true });
-        list.push(email);
-        await writeJSON(env, "data/subscribers.json", list, sha, "Subscribe: new subscriber");
-        return json({ ok: true, total: list.length });
-      } catch (err) {
-        return json({ ok: false, msg: err.message }, 500);
-      }
-    }
-
-    // ── Email Unsubscribe ─────────────────────────────────────────────
-
-    if (url.pathname === "/api/unsubscribe") {
-      let email;
-      if (request.method === "POST") {
-        try { const b = await request.json(); email = b.email; } catch { email = ""; }
-      } else {
-        email = url.searchParams.get("email") || "";
-      }
-      email = email.trim().toLowerCase();
-      if (!isValidEmail(email)) {
-        return request.method === "POST" ? json({ok:false,msg:"bad email"},400) : html("<h2>❌ 邮箱格式不正确</h2>");
-      }
-
-      try {
-        const { raw: emails, sha } = await readJSON(env, "data/subscribers.json");
-        const list = Array.isArray(emails) ? emails : [];
-        const before = list.length;
-        const filtered = list.filter(e => e !== email);
-        if (filtered.length === before) {
-          return request.method === "POST" ? json({ok:false,msg:"not found"}) : html("<h2>📭 该邮箱不在订阅列表中</h2>");
-        }
-        await writeJSON(env, "data/subscribers.json", filtered, sha, "Unsubscribe");
-
-        try {
-          const { raw: w, sha: ws } = await readJSON(env, "data/welcomed.json");
-          const wList = Array.isArray(w) ? w : [];
-          const wFiltered = wList.filter(e => e !== email);
-          if (wFiltered.length !== wList.length) {
-            await writeJSON(env, "data/welcomed.json", wFiltered, ws, "Unsubscribe (clean welcomed)");
-          }
-        } catch { /* best-effort */ }
-
-        return request.method === "POST" ? json({ok:true,msg:"unsubscribed"}) : html("<h2>✅ 退订成功</h2>");
-      } catch (err) {
-        return request.method === "POST" ? json({ok:false,msg:err.message},500) : html("<h2>❌ 退订失败</h2>");
-      }
-    }
 
     // ── Admin send to Feishu group ────────────────────────────────────
 

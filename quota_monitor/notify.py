@@ -1,8 +1,7 @@
-"""通知模块 — 飞书 Webhook + 邮件 (agently-cli) 双通道通知。
+"""通知模块 — 飞书群聊 + 私聊通知。
 
 在 CI (GitHub Actions) 中通过环境变量获取配置：
-  - FEISHU_WEBHOOK_URL: 飞书群机器人 webhook URL
-  - EMAIL_SUBSCRIBERS: JSON 数组，邮件订阅者列表
+  - FEISHU_APP_ID / FEISHU_APP_SECRET / FEISHU_CHAT_ID: 飞书自建应用
 
 本地运行时通过 config.json 配置。
 """
@@ -10,9 +9,6 @@
 import json
 import logging
 import os
-import re
-import subprocess
-import time
 
 import requests
 
@@ -239,134 +235,10 @@ def send_feishu_webhook(webhook_url, text, title="🔔 香港入境处预约配�
         return False
 
 
-# ─── 邮件 (QQ SMTP 优先，agently-cli 本地回退) ──────────────────
-
-# QQ 邮箱 SMTP 配置
-SMTP_HOST = "smtp.qq.com"
-SMTP_PORT = 587
-
-
-def send_email_smtp(to, subject, body, username=None, password=None):
-    """通过 QQ SMTP 发送邮件（CI 友好，500封/天）。
-
-    Args:
-        to: 收件人邮箱
-        subject: 邮件主题
-        body: 邮件正文（自动检测 HTML/纯文本）
-        username: QQ 邮箱地址
-        password: QQ SMTP 授权码
-
-    Returns:
-        bool: 是否发送成功
-    """
-    import smtplib
-    from email.mime.text import MIMEText
-    from email.mime.multipart import MIMEMultipart
-
-    if not username:
-        username = os.environ.get("SMTP_USERNAME", "")
-    if not password:
-        password = os.environ.get("SMTP_PASSWORD", "")
-
-    if not username or not password:
-        logger.warning("未配置 QQ SMTP 凭据，跳过邮件发送")
-        return False
-
-    # 自动检测 HTML
-    is_html = bool(re.search(r"<\w+[^>]*>", body))
-    subtype = "html" if is_html else "plain"
-
-    msg = MIMEMultipart()
-    msg["From"] = f"Quota Monitor <{username}>"
-    msg["To"] = to
-    msg["Subject"] = subject
-    msg.attach(MIMEText(body, subtype, "utf-8"))
-
-    try:
-        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15)
-        server.starttls()
-        server.login(username, password)
-        server.sendmail(username, [to], msg.as_string())
-        server.quit()
-        logger.info("QQ SMTP 邮件发送成功")
-        return True
-    except smtplib.SMTPAuthenticationError:
-        logger.error("QQ SMTP 认证失败，请检查邮箱地址和授权码")
-        return False
-    except smtplib.SMTPConnectError:
-        logger.error("无法连接 QQ SMTP 服务器")
-        return False
-    except Exception as e:
-        logger.error("SMTP 异常: %s", e)
-        return False
-
-
-def send_email_agently(to, subject, body):
-    """通过 agently-cli 发送邮件（本地回退方案）。
-
-    Returns:
-        bool: 是否发送成功
-    """
-    import subprocess
-
-    try:
-        subprocess.run(["agently-cli", "--version"],
-                       capture_output=True, timeout=5)
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        logger.warning("agently-cli 不可用，跳过邮件发送")
-        return False
-
-    base_cmd = [
-        "agently-cli", "message", "+send",
-        "--to", to, "--subject", subject, "--body", body,
-        "--format", "json",
-    ]
-    env = os.environ.copy()
-    env.setdefault("LARKSUITE_CLI_NO_UPDATE_NOTIFIER", "1")
-
-    # 第一阶段
-    try:
-        result = subprocess.run(
-            base_cmd, capture_output=True, text=True, timeout=30, env=env)
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        return False
-
-    if result.returncode == 0:
-        logger.info("agently-cli 邮件发送成功: %s", to)
-        return True
-
-    if result.returncode != 8:
-        logger.error("agently-cli 错误: exit=%d", result.returncode)
-        return False
-
-    # 解析 confirmation token
-    try:
-        response = json.loads(result.stdout) if result.stdout.strip() else {}
-    except json.JSONDecodeError:
-        logger.error("agently-cli JSON 解析失败")
-        return False
-
-    token = response.get("data", {}).get("confirmation_token", "")
-    if not token:
-        return False
-
-    # 第二阶段
-    confirm_cmd = base_cmd + ["--confirmation-token", token]
-    try:
-        result2 = subprocess.run(
-            confirm_cmd, capture_output=True, text=True, timeout=30, env=env)
-    except subprocess.TimeoutExpired:
-        return False
-
-    ok = result2.returncode == 0
-    logger.info("agently-cli 邮件: %s", "OK" if ok else "FAIL")
-    return ok
-
-
 # ─── 统一发送接口 ───────────────────────────────────────────────────
 
-def send_notifications(text, subject, config=None):
-    """统一发送通知（飞书 + 邮件），无频率控制。
+def send_notifications(text, config=None):
+    """统一发送飞书通知。邮件功能已下架。
 
     飞书支持两种模式：
       - API 模式：自建应用，需要 APP_ID + APP_SECRET + CHAT_ID
@@ -375,16 +247,15 @@ def send_notifications(text, subject, config=None):
 
     Args:
         text: 飞书消息正文
-        subject: 邮件主题
         config: 通知配置 dict，为 None 时从环境变量读取（CI 模式）
 
     Returns:
-        dict: {"feishu": bool, "email": int} — email 为成功发送数
+        dict: {"feishu": bool}
     """
     if config is None:
         config = _ci_config()
 
-    result = {"feishu": False, "email": 0}
+    result = {"feishu": False}
 
     # ── 飞书通知 ──
     feishu_cfg = config.get("feishu", {})
@@ -399,24 +270,6 @@ def send_notifications(text, subject, config=None):
             result["feishu"] = send_feishu_api(text, app_id, app_secret, chat_id)
         elif webhook_url:
             result["feishu"] = send_feishu_webhook(webhook_url, text)
-
-    # ── 邮件通知 ──
-    email_cfg = config.get("email", {})
-    email_enabled = email_cfg.get("enabled", False)
-    subscribers = email_cfg.get("subscribers", [])
-    smtp_username = email_cfg.get("smtp_username", "")
-    smtp_password = email_cfg.get("smtp_password", "")
-
-    if email_enabled and subscribers:
-        for recipient in subscribers:
-            sent = send_email_smtp(recipient, subject, text,
-                                   smtp_username, smtp_password)
-            if not sent:
-                sent = send_email_agently(recipient, subject, text)
-            if sent:
-                result["email"] += 1
-            if len(subscribers) > 1:
-                time.sleep(2)
 
     return result
 
@@ -436,7 +289,6 @@ def _ci_config():
             "chat_id": "",
             "webhook_url": "",
         },
-        "email": {"enabled": False, "subscribers": []},
     }
 
     # 飞书 API 模式 (自建应用 — CI 环境变量)
@@ -454,20 +306,5 @@ def _ci_config():
     if webhook_url:
         config["feishu"]["enabled"] = True
         config["feishu"]["webhook_url"] = webhook_url
-
-    # 邮件 (QQ SMTP + 订阅者列表)
-    smtp_username = os.environ.get("SMTP_USERNAME", "")
-    smtp_password = os.environ.get("SMTP_PASSWORD", "")
-    email_subscribers = os.environ.get("EMAIL_SUBSCRIBERS", "")
-    if smtp_username and smtp_password:
-        try:
-            subscribers = json.loads(email_subscribers) if email_subscribers else []
-            if isinstance(subscribers, list) and subscribers:
-                config["email"]["enabled"] = True
-                config["email"]["smtp_username"] = smtp_username
-                config["email"]["smtp_password"] = smtp_password
-                config["email"]["subscribers"] = subscribers
-        except json.JSONDecodeError:
-            logger.warning("EMAIL_SUBSCRIBERS JSON 解析失败")
 
     return config

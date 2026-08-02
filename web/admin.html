@@ -95,7 +95,6 @@ input[type="password"] { width: 100%; margin-bottom: 12px; }
     <!-- Tabs -->
     <div class="tabs">
       <button class="tab on" data-tab="overview">📊 概览</button>
-      <button class="tab" data-tab="email">📧 邮件订阅</button>
       <button class="tab" data-tab="dm">💬 DM 订阅</button>
       <button class="tab" data-tab="send">📢 群发</button>
     </div>
@@ -103,26 +102,10 @@ input[type="password"] { width: 100%; margin-bottom: 12px; }
     <!-- 📊 Overview -->
     <div id="tab-overview">
       <div class="kpi-row" id="kpiRow">
-        <div class="kpi"><div class="kv" id="kpiEmail">-</div><div class="kl">邮件订阅</div></div>
         <div class="kpi"><div class="kv" id="kpiDmActive">-</div><div class="kl">DM 活跃订阅</div></div>
         <div class="kpi"><div class="kv" id="kpiDmAll">-</div><div class="kl">全部日期 / 特定日期</div></div>
         <div class="kpi"><div class="kv" id="kpiDmDaily">-</div><div class="kl">今日 DM 新增 / 退订</div></div>
         <div class="kpi"><div class="kv" id="kpiDmEver">-</div><div class="kl">历史累计 DM</div></div>
-      </div>
-    </div>
-
-    <!-- 📧 Email -->
-    <div id="tab-email" class="hidden">
-      <div class="card">
-        <div class="toolbar">
-          <input class="search" id="emailSearch" placeholder="🔍 搜索邮箱..." oninput="filterEmail()">
-          <span style="font-size:0.82rem;color:var(--text2)">共 <strong id="emailCount">0</strong> 人</span>
-          <button class="btn btn-ghost btn-sm" onclick="copyEmails()">📋 复制全部</button>
-          <button class="btn btn-ghost btn-sm" onclick="exportCSV('email')">📥 导出 CSV</button>
-        </div>
-        <div style="max-height:420px;overflow-y:auto">
-        <table><tbody id="emailTable"></tbody></table>
-        </div>
       </div>
     </div>
 
@@ -160,7 +143,7 @@ const WORKER = "https://quota-monitor.deng-zheyi.workers.dev";
 const AUTH_KEY = "qm_admin_auth2";
 
 let token = "";
-let emailList = [], dmList = [];
+let dmList = [];
 
 // ── Login ────────────────────────────────────────────
 const loginView = document.getElementById("loginView");
@@ -227,9 +210,8 @@ document.querySelectorAll(".tab").forEach(t => {
 
 function switchTab(name) {
   currentTab = name;
-  ["overview","email","dm","send"].forEach(n => document.getElementById("tab-"+n).classList.toggle("hidden", n !== name));
+  ["overview","dm","send"].forEach(n => document.getElementById("tab-"+n).classList.toggle("hidden", n !== name));
   if (name === "overview") loadStats();
-  if (name === "email" && emailList.length === 0) loadEmails();
   if (name === "dm" && dmList.length === 0) loadDm();
 }
 
@@ -257,18 +239,10 @@ async function post(path, body) {
 async function loadStats() {
   const data = await post("/api/admin/stats", {});
   if (!data.ok) return;
-  document.getElementById("kpiEmail").textContent = data.email_count;
   document.getElementById("kpiDmActive").textContent = data.dm_active;
   document.getElementById("kpiDmAll").textContent = data.dm_all + " / " + data.dm_pick;
   document.getElementById("kpiDmDaily").textContent = "+" + data.dm_daily_new + " / -" + data.dm_daily_unsub;
   document.getElementById("kpiDmEver").textContent = data.dm_ever;
-}
-
-async function loadEmails() {
-  const data = await post("/api/admin/subscribers", {});
-  if (!data.ok) return;
-  emailList = data.subscribers || [];
-  renderEmailTable();
 }
 
 async function loadDm() {
@@ -276,47 +250,6 @@ async function loadDm() {
   if (!data.ok) return;
   dmList = data.subscribers || [];
   renderDmTable();
-}
-
-// ── Email table ───────────────────────────────────────
-function renderEmailTable(filter) {
-  const list = filter ? emailList.filter(e => e.toLowerCase().includes(filter.toLowerCase())) : emailList;
-  document.getElementById("emailCount").textContent = emailList.length;
-  const tbody = document.getElementById("emailTable");
-  if (list.length === 0) { tbody.innerHTML = '<tr><td style="text-align:center;color:var(--text2);padding:24px">无数据</td></tr>'; return; }
-  tbody.innerHTML = list.map((e, i) => `
-    <tr>
-      <td style="width:32px;color:var(--text2)">${i+1}</td>
-      <td class="mono">${esc(e)}</td>
-      <td style="text-align:right"><button class="btn btn-danger btn-sm" onclick="delEmail('${esc(e)}')">删除</button></td>
-    </tr>`).join("");
-}
-function filterEmail() { renderEmailTable(document.getElementById("emailSearch").value); }
-
-async function delEmail(email) {
-  if (!confirm(`确定删除 ${email}？`)) return;
-  try {
-    const resp = await fetch(`${WORKER}/api/unsubscribe`, {
-      method: "POST", headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ email }),
-    });
-    const data = await resp.json();
-    if (data.ok) {
-      emailList = emailList.filter(e => e !== email);
-      renderEmailTable();
-    } else { alert(data.msg || "删除失败"); }
-  } catch { alert("网络错误"); }
-}
-
-function copyEmails() {
-  navigator.clipboard.writeText(emailList.join("\n")).then(() => alert(`已复制 ${emailList.length} 个邮箱`));
-}
-
-function exportCSV(type) {
-  let csv = "email\n";
-  if (type === "email") emailList.forEach(e => csv += e + "\n");
-  const blob = new Blob([csv], {type: "text/csv"});
-  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "subscribers.csv"; a.click();
 }
 
 // ── DM table ──────────────────────────────────────────
