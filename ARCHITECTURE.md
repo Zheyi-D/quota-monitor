@@ -212,15 +212,28 @@ feishu-ws-client.js 使用飞书官方 Node.js SDK 的 `WSClient` 建立 WebSock
 ### 交互方式
 
 - **接收消息**：`im.message.receive_v1` — 解析文字命令/日期输入
-- **卡片按钮**：`card.action.trigger` — 处理交互卡片按钮点击
+- **卡片按钮**：`card.action.trigger` — 处理交互卡片按钮点击（含办事处多选状态管理）
 - **发送回复**：SDK `client.im.message.create()`，`receive_id_type=open_id`
+
+### 过滤模式
+
+三种订阅方式，通过多步骤卡片交互引导：
+
+| 模式 | 触发按钮 | 流程 |
+|------|---------|------|
+| 📅 仅按日期 | `sub_pick_date` | 回复日期 → 订阅 |
+| 🏢 仅按办事处 | `sub_pick_office` | 选办事处（多选，点击切换，已选中标 ✓）→ 确认 |
+| 🎯 日期+办事处 | `sub_pick_both` | 先选办事处 → 确认 → 回复日期 → 订阅 |
+| 🔔 全量 | `sub_all` | 所有日期×所有办事处 |
+
+使用 `userState` Map 维护多步骤临时状态（`mode` + `selectedOffices`）。
 
 ### 数据存储
 
 订阅偏好加密存储在 `data/feishu_subs.json`（Worker REST API 读写）：
 
 ```json
-[{"open_id": "ou_xxx", "dates": ["08/15/2026", ...], "subscribed_at": "..."}]
+[{"open_id": "ou_xxx", "dates": [], "offices": ["FTO","RHK"], "subscribed_at": "..."}]
 ```
 
 - `dates: []` → 全量通知
@@ -250,13 +263,14 @@ CI 检测到 `newly_available` 变化时，通过 GitHub API 追加到 `data/run
 
 ## 管理后台（Admin v2）
 
-`web/admin.html` — 三 Tab 管理后台，提供：
+`web/admin.html` — 四 Tab 管理后台，提供：
 
 | Tab | 功能 |
 |-----|------|
-| 📊 概览 | DM 订阅统计、今日新增/退订、历史累计（BJT 时区） |
-| 💬 DM 订阅 | 查看/搜索/展开/删除 DM 订阅者，统计全部/特定日期分布 |
+| 📊 概览 | DM 订阅统计、今日新增（首次新人）/退订（主动）、历史累计（BJT 时区） |
+| 💬 DM 订阅 | 查看/搜索/展开/删除 DM 订阅者，统计全部/特定日期分布、办事处列 |
 | 📢 群发 | 群聊广播（多群并发）+ 私聊群发（串行 0.5s/人） |
+| 📝 模板 | 通知模板编辑器：header/item/footer + 链接配置 + 实时预览 + 云端保存 |
 
 所有 Admin API 通过 `Authorization: Bearer <token>` 鉴权（HMAC-SHA256 签名，有效期 2 小时），登录端点除外。
 
@@ -265,11 +279,29 @@ CI 检测到 `newly_available` 变化时，通过 GitHub API 追加到 `data/run
 | 端点 | 用途 |
 |------|------|
 | `POST /api/admin/login` | 密码登录，返回 signed token（2h 有效期） |
-| `POST /api/admin/stats` | 返回 DM 订阅统计（活跃/新增/退订/历史累计） |
+| `GET /api/admin/template` | 获取当前通知模板 |
+| `POST /api/admin/template` | 保存通知模板（加密存储 `data/notify_template.json`） |
+| `POST /api/admin/stats` | 返回 DM 订阅统计（活跃/今日新增新人/退订人数/历史累计） |
 | `POST /api/admin/dm-subscribers` | 返回解密后的 DM 订阅列表 |
 | `POST /api/admin/dm-send` | 私聊群发给所有 DM 订阅者（串行 0.5s/人） |
 
-统计使用 **BJT（UTC+8）** 过滤今日数据。
+统计使用 **BJT（UTC+8）** 过滤今日数据。每日新增仅统计**首次出现的 open_id**，重复修改不计。
+
+## 通知模板（Template v1）
+
+`format_changes()` 支持自定义模板，从 `data/notify_template.json`（加密）加载，文件不存在时使用硬编码默认值。
+
+| 占位符 | 替换内容 |
+|--------|---------|
+| `{{time}}` | 检测时间（北京时间） |
+| `{{date}}` | 日期（MM/DD/YYYY） |
+| `{{office_name}}` | 办事处中文名 |
+| `{{office}}` | 办事处代码 |
+| `{{qtype_name}}` | 服务类型 |
+| `{{status_name}}` | 状态 |
+| `{{dashboard_url}}` 等 | 底部链接（admin 模板 Tab 可自定义） |
+
+模板结构与实时预览通过 admin 后台「📝 模板」Tab 管理，`GET/POST /api/admin/template` 读写。
 
 ## 加密存储
 
