@@ -239,9 +239,10 @@ export default {
 	        try {
 	          const { raw: log } = await readJSON(env, "data/feishu_subs_log.json");
 	          const logList = Array.isArray(log) ? log : [];
-	          const today = new Date().toISOString().slice(0, 10);
-	          dailyNew = logList.filter(e => e.action === "subscribe" && e.time.slice(0,10) === today).length;
-	          dailyUnsub = logList.filter(e => e.action === "unsubscribe" && e.time.slice(0,10) === today).length;
+	          // BJT today: UTC+8
+	          const bjt = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+	          dailyNew = logList.filter(e => e.action === "subscribe" && e.time.slice(0,10) === bjt).length;
+	          dailyUnsub = logList.filter(e => e.action === "unsubscribe" && e.time.slice(0,10) === bjt).length;
 	          logList.forEach(e => everIds.add(e.open_id));
 	        } catch (_) { /* log file read failed, use dmActive as fallback */ }
 	        const everSubscribed = everIds.size;
