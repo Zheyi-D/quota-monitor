@@ -568,7 +568,7 @@ async function doStatus(openId) {
   const resp = await workerGet(`/api/feishu-status?open_id=${encodeURIComponent(openId)}`);
   if (resp.ok) {
     const entry = resp.subscribed
-      ? { dates: resp.dates, offices: resp.offices, subscribed_at: resp.subscribed_at || "" }
+      ? { dates: resp.dates || [], offices: resp.offices || [], subscribed_at: resp.subscribed_at || "" }
       : null;
     return await sendDM(openId, buildStatusCard(entry));
   } else {

@@ -255,7 +255,7 @@ export default {
         const { raw: subs } = await readJSON(env, "data/feishu_subs.json");
         const list = Array.isArray(subs) ? subs : [];
         const entry = list.find(s => s.open_id === openId);
-        return json({ ok: true, subscribed: !!entry, dates: entry ? entry.dates : null });
+        return json({ ok: true, subscribed: !!entry, dates: entry ? entry.dates : null, offices: entry ? entry.offices : null });
       } catch (err) {
         return json({ ok: false, msg: err.message }, 500);
       }
