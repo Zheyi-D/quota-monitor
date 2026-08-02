@@ -13,23 +13,10 @@ import os
 import re
 import subprocess
 import time
-from datetime import datetime, timedelta
 
 import requests
 
 logger = logging.getLogger("quota_monitor")
-
-# 频率控制的最小间隔（秒）
-DEFAULT_MIN_INTERVAL = {
-    "feishu": 600,   # 10 分钟
-    "email": 1800,   # 30 分钟
-}
-
-# 每日邮件上限
-DEFAULT_MAX_EMAIL_DAILY = 45
-
-# 本地状态文件（用于频率控制）
-_NOTIFY_STATE_FILE = "notify_state.json"
 
 
 # ─── 飞书通知 ────────────────────────────────────────────────────
@@ -376,94 +363,10 @@ def send_email_agently(to, subject, body):
     return ok
 
 
-# ─── 频率控制 ───────────────────────────────────────────────────────
-
-def _load_notify_state():
-    """加载通知频率控制状态。"""
-    if os.path.exists(_NOTIFY_STATE_FILE):
-        try:
-            with open(_NOTIFY_STATE_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except (json.JSONDecodeError, IOError):
-            pass
-    return {}
-
-
-def _save_notify_state(state):
-    """保存通知频率控制状态。"""
-    try:
-        with open(_NOTIFY_STATE_FILE, "w", encoding="utf-8") as f:
-            json.dump(state, f, ensure_ascii=False, indent=2)
-    except IOError as e:
-        logger.warning("无法保存通知状态: %s", e)
-
-
-def _can_send(channel, min_interval_seconds, max_daily=None):
-    """检查某通知通道是否可以发送。
-
-    Args:
-        channel: 通道名 ("feishu" 或 "email")
-        min_interval_seconds: 最小发送间隔
-        max_daily: 每日上限（仅 email 使用）
-
-    Returns:
-        bool: 是否可以发送
-    """
-    state = _load_notify_state()
-    now = datetime.now()
-    today_str = now.strftime("%Y-%m-%d")
-
-    # 检查最小间隔
-    last_key = f"last_{channel}_time"
-    last_time_str = state.get(last_key)
-    if last_time_str:
-        try:
-            last_time = datetime.fromisoformat(last_time_str)
-            elapsed = (now - last_time).total_seconds()
-            if elapsed < min_interval_seconds:
-                logger.info("%s 通知距上次仅 %.0f 秒，跳过（最小间隔 %d 秒）",
-                            channel, elapsed, min_interval_seconds)
-                return False
-        except ValueError:
-            pass
-
-    # 检查每日上限
-    if max_daily:
-        count_key = f"daily_{channel}_count"
-        date_key = f"daily_{channel}_date"
-        if state.get(date_key) != today_str:
-            state[count_key] = 0
-            state[date_key] = today_str
-
-        if state.get(count_key, 0) >= max_daily:
-            logger.warning("%s 已达每日上限 %d，跳过发送", channel, max_daily)
-            return False
-
-    return True
-
-
-def _record_sent(channel):
-    """记录一次通知发送。"""
-    state = _load_notify_state()
-    now = datetime.now()
-    today_str = now.strftime("%Y-%m-%d")
-
-    state[f"last_{channel}_time"] = now.isoformat()
-
-    count_key = f"daily_{channel}_count"
-    date_key = f"daily_{channel}_date"
-    if state.get(date_key) != today_str:
-        state[count_key] = 0
-        state[date_key] = today_str
-    state[count_key] = state.get(count_key, 0) + 1
-
-    _save_notify_state(state)
-
-
 # ─── 统一发送接口 ───────────────────────────────────────────────────
 
 def send_notifications(text, subject, config=None):
-    """统一发送通知（飞书 + 邮件），带频率控制。
+    """统一发送通知（飞书 + 邮件），无频率控制。
 
     飞书支持两种模式：
       - API 模式：自建应用，需要 APP_ID + APP_SECRET + CHAT_ID
@@ -492,18 +395,10 @@ def send_notifications(text, subject, config=None):
     webhook_url = feishu_cfg.get("webhook_url", "")
 
     if feishu_enabled:
-        min_interval = feishu_cfg.get("min_interval_minutes", 10) * 60
-        if _can_send("feishu", min_interval):
-            # API 模式优先（自建应用）
-            if app_id and app_secret and chat_id:
-                if send_feishu_api(text, app_id, app_secret, chat_id):
-                    _record_sent("feishu")
-                    result["feishu"] = True
-            # Webhook 模式（群自定义机器人）
-            elif webhook_url:
-                if send_feishu_webhook(webhook_url, text):
-                    _record_sent("feishu")
-                    result["feishu"] = True
+        if app_id and app_secret and chat_id:
+            result["feishu"] = send_feishu_api(text, app_id, app_secret, chat_id)
+        elif webhook_url:
+            result["feishu"] = send_feishu_webhook(webhook_url, text)
 
     # ── 邮件通知 ──
     email_cfg = config.get("email", {})
@@ -513,21 +408,15 @@ def send_notifications(text, subject, config=None):
     smtp_password = email_cfg.get("smtp_password", "")
 
     if email_enabled and subscribers:
-        min_interval = email_cfg.get("min_interval_minutes", 30) * 60
-        if _can_send("email", min_interval, max_daily=DEFAULT_MAX_EMAIL_DAILY):
-            for recipient in subscribers:
-                # QQ SMTP 优先
-                sent = send_email_smtp(recipient, subject, text,
-                                       smtp_username, smtp_password)
-                # agently-cli 本地回退
-                if not sent:
-                    sent = send_email_agently(recipient, subject, text)
-                if sent:
-                    result["email"] += 1
-                if len(subscribers) > 1:
-                    time.sleep(2)
-            if result["email"] > 0:
-                _record_sent("email")
+        for recipient in subscribers:
+            sent = send_email_smtp(recipient, subject, text,
+                                   smtp_username, smtp_password)
+            if not sent:
+                sent = send_email_agently(recipient, subject, text)
+            if sent:
+                result["email"] += 1
+            if len(subscribers) > 1:
+                time.sleep(2)
 
     return result
 
