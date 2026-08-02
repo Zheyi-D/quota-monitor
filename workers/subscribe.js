@@ -1,5 +1,5 @@
 /**
- * quota-monitor Worker v10 — 邮件订阅/退订 + 管理员群发 + 飞书 DM 订阅 API
+ * quota-monitor Worker v11 — 飞书 DM 订阅 API + 管理后台 API + 管理员群发
  */
 
 const CORS = {
