@@ -397,7 +397,7 @@ function renderHeatmap(pd) {
   const cutoff = new Date(now - pd * 86400000);
   const keys = [], dts = [];
   for (let d = new Date(cutoff); d <= now; d.setDate(d.getDate() + 1)) {
-    if (d.getDay() !== 0) { keys.push(fmtDate(d)); dts.push(new Date(d)); }
+    keys.push(fmtDate(d)); dts.push(new Date(d));
   }
   function bjHour(ts) {
     return new Date(ts.toLocaleString("en-US", { timeZone: "Asia/Shanghai" })).getHours();
