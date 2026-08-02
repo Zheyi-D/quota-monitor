@@ -180,8 +180,47 @@ def detect_changes(old_snapshot, new_snapshot, notify_full=True):
     return changes
 
 
+def _load_template():
+    """从文件加载通知模板，如文件不存在返回 None。"""
+    import base64
+    import os
+
+    tpl_path = "data/notify_template.json"
+    if not os.path.exists(tpl_path):
+        return None
+
+    try:
+        import json
+        with open(tpl_path) as f:
+            wrapper = json.load(f)
+        if wrapper and isinstance(wrapper, dict) and wrapper.get("enc"):
+            from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+            key = base64.b64decode(
+                os.environ.get("ENCRYPTION_KEY",
+                               "MC31nrort3V69A/EloZj9TXVAeNdB2zO2dh0ZNvEfk0="))
+            aes = AESGCM(key)
+            raw = base64.b64decode(wrapper["data"])
+            iv, ct = raw[:12], raw[12:]
+            return json.loads(aes.decrypt(iv, ct, None))
+        return wrapper
+    except Exception:
+        return None
+
+
+def _render_item(tpl_item, **kwargs):
+    """渲染单行模板，将 {{key}} 替换为实际值。"""
+    import re
+    result = tpl_item
+    for key, val in kwargs.items():
+        result = result.replace("{{%s}}" % key, str(val))
+    return result
+
+
 def format_changes(changes, offices=None):
     """将变化字典格式化为人类可读的消息文本。
+
+    支持自定义模板：data/notify_template.json（加密）。
+    如文件不存在则使用硬编码默认模板。
 
     Args:
         changes: detect_changes() 返回的变化字典
@@ -193,39 +232,65 @@ def format_changes(changes, offices=None):
     if not offices:
         offices = DEFAULT_OFFICES
 
-    lines = []
     import time as _time
     bj_ts = _time.time() + 8 * 3600
     now = _time.strftime("%Y-%m-%d %H:%M:%S", _time.gmtime(bj_ts))
-    lines.append(f"📅 检测时间（北京时间）：{now}")
-    lines.append("")
 
-    has_any = False
+    # 默认链接（模板中可覆盖）
+    default_links = {
+        "dashboard_url": "https://Zheyi-D.github.io/quota-monitor",
+        "booking_url": "https://www.gov.hk/sc/apps/immdicbooking2.htm",
+        "quota_url": "https://eservices.es2.immd.gov.hk/es/quota-enquiry-client/?l=zh-CN&appId=579",
+        "group_url": "https://scn7uo58gnuo.feishu.cn/wiki/QSFlwcMBmil7sGkZRBTcAWqwnCf",
+    }
+
+    # 默认模板
+    default_header = "📅 检测时间（北京时间）：{{time}}\n\n🟢 **新放出名额！**\n"
+    default_item = "  • {{date}}  {{office_name}}({{office}})  {{qtype_name}} → {{status_name}}"
+    default_footer = (
+        "\n——————————————————————————————\n"
+        "📊 实时看板：{{dashboard_url}}\n"
+        "📋 预约办理：{{booking_url}}\n"
+        "🪧 配额查询：{{quota_url}}\n"
+        "📖 加群方式：{{group_url}}\n"
+        "\n⚠️ 本系统为第三方开源工具，非香港入境事务处官方服务。请以官网信息为准。\n"
+        "   仅供学习交流，请勿用于商业盈利目的。"
+    )
+
+    # 尝试加载自定义模板
+    tpl = _load_template()
+    if tpl and isinstance(tpl, dict):
+        header = tpl.get("header", default_header)
+        item_fmt = tpl.get("item", default_item)
+        footer = tpl.get("footer", default_footer)
+        links = {**default_links, **tpl.get("links", {})}
+    else:
+        header = default_header
+        item_fmt = default_item
+        footer = default_footer
+        links = default_links
+
+    lines = []
+    # 渲染 header
+    header_rendered = _render_item(header, time=now, **links)
+    lines.append(header_rendered)
 
     if changes.get("newly_available"):
-        has_any = True
-        lines.append("🟢 **新放出名额！**")
-        lines.append("")
         for (date, office, qtype), old_s, new_s in changes["newly_available"]:
             office_name = offices.get(office, office)
             qtype_name = QUOTA_TYPES.get(qtype, qtype)
             status_name = STATUS_NAMES.get(new_s, new_s)
-            lines.append(f"  • {date}  {office_name}({office})  {qtype_name} → {status_name}")
+            item_rendered = _render_item(
+                item_fmt,
+                date=date, office_name=office_name, office=office,
+                qtype_name=qtype_name, status_name=status_name,
+                **links,
+            )
+            lines.append(item_rendered)
 
-    if not has_any:
-        lines.append("✅ 配额状态无变化")
-        lines.append(f"  共监控 {len(DEFAULT_OFFICES)} 个办事处")
-
-    # 添加网页看板链接（部署后填入实际地址）
-    lines.append("")
-    lines.append("—" * 30)
-    lines.append("📊 实时看板：https://Zheyi-D.github.io/quota-monitor")
-    lines.append("📋 预约办理：https://www.gov.hk/sc/apps/immdicbooking2.htm")
-    lines.append("🪧 配额查询：https://eservices.es2.immd.gov.hk/es/quota-enquiry-client/?l=zh-CN&appId=579")
-    lines.append("📱 加入飞书群：https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=49ar968e-150c-4e7f-bae4-95cae408033b")
-    lines.append("")
-    lines.append("⚠️ 本系统为第三方开源工具，非香港入境事务处官方服务。请以官网信息为准。")
-    lines.append("   仅供学习交流，请勿用于商业盈利目的。")
+    # 渲染 footer
+    footer_rendered = _render_item(footer, time=now, **links)
+    lines.append(footer_rendered)
 
     return "\n".join(lines)
 

@@ -388,6 +388,36 @@ export default {
 
     // ── Email Subscribe ───────────────────────────────────────────────
 
+    // ── Template (read/write notification template) ──────────────────
+
+    if (url.pathname === "/api/admin/template") {
+      if (request.method === "GET") {
+        if (!(await authToken(env, request))) return json({ok:false,msg:"unauthorized"},401);
+        try {
+          const { raw: tpl } = await readJSON(env, "data/notify_template.json");
+          return json({ ok: true, template: tpl || null });
+        } catch (err) {
+          return json({ ok: false, msg: err.message }, 500);
+        }
+      }
+
+      if (request.method === "POST") {
+        if (!(await authToken(env, request))) return json({ok:false,msg:"unauthorized"},401);
+        let body;
+        try { body = await request.json(); } catch { return json({ok:false,msg:"bad json"},400); }
+        const tpl = body.template;
+        if (!tpl || typeof tpl !== "object") return json({ok:false,msg:"template required"},400);
+
+        try {
+          const { raw: existing, sha } = await readJSON(env, "data/notify_template.json");
+          await writeJSON(env, "data/notify_template.json", tpl, sha, "Update notification template");
+          return json({ ok: true, msg: "saved" });
+        } catch (err) {
+          return json({ ok: false, msg: err.message }, 500);
+        }
+      }
+    }
+
     // ── Admin send to Feishu group ────────────────────────────────────
 
     if (request.method === "POST" && url.pathname === "/api/admin-send") {

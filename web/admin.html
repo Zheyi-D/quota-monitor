@@ -97,6 +97,7 @@ input[type="password"] { width: 100%; margin-bottom: 12px; }
       <button class="tab on" data-tab="overview">📊 概览</button>
       <button class="tab" data-tab="dm">💬 DM 订阅</button>
       <button class="tab" data-tab="send">📢 群发</button>
+      <button class="tab" data-tab="tpl">📝 模板</button>
     </div>
 
     <!-- 📊 Overview -->
@@ -133,6 +134,37 @@ input[type="password"] { width: 100%; margin-bottom: 12px; }
           <span style="font-size:0.78rem;color:var(--text2)">（私聊群发有 0.5s/人 间隔，请耐心等待）</span>
         </div>
         <div id="sendMsg" class="msg hidden"></div>
+      </div>
+    </div>
+
+    <!-- 📝 Template -->
+    <div id="tab-tpl" class="hidden">
+      <div class="card">
+        <div class="card-title">📝 通知模板</div>
+        <p style="font-size:0.8rem;color:var(--text2);margin-bottom:12px">修改飞书群通知消息的格式。可用占位符：<code v-pre>{{time}}</code> <code v-pre>{{date}}</code> <code v-pre>{{office_name}}</code> <code v-pre>{{office}}</code> <code v-pre>{{qtype_name}}</code> <code v-pre>{{status_name}}</code> <code v-pre>{{dashboard_url}}</code> <code v-pre>{{booking_url}}</code> <code v-pre>{{quota_url}}</code> <code v-pre>{{group_url}}</code></p>
+
+        <label>📌 标题区域</label>
+        <textarea id="tplHeader" rows="3" placeholder="放号通知的标题部分..."></textarea>
+
+        <label>📋 每行格式</label>
+        <input id="tplItem" placeholder="  • {{date}}  {{office_name}}({{office}})  {{qtype_name}} → {{status_name}}">
+
+        <label>🔗 底部区域（链接 + 免责声明）</label>
+        <textarea id="tplFooter" rows="6" placeholder="放号通知的底部部分..."></textarea>
+
+        <label>🔗 链接配置</label>
+        <div class="tpl-links" id="tplLinks"></div>
+
+        <div class="toolbar" style="margin-top:12px">
+          <button class="btn btn-primary" id="saveTplBtn">💾 保存模板</button>
+          <button class="btn btn-ghost" id="resetTplBtn">🔄 恢复默认</button>
+          <span id="tplMsg" class="msg hidden"></span>
+        </div>
+
+        <details style="margin-top:16px">
+          <summary style="cursor:pointer;font-size:0.85rem;font-weight:600;color:var(--text2)">📋 预览示例</summary>
+          <div class="preview" id="tplPreview" style="margin-top:8px;font-size:0.82rem;line-height:1.7;white-space:pre-wrap;color:var(--text)"></div>
+        </details>
       </div>
     </div>
   </div>
@@ -210,9 +242,10 @@ document.querySelectorAll(".tab").forEach(t => {
 
 function switchTab(name) {
   currentTab = name;
-  ["overview","dm","send"].forEach(n => document.getElementById("tab-"+n).classList.toggle("hidden", n !== name));
+  ["overview","dm","send","tpl"].forEach(n => document.getElementById("tab-"+n).classList.toggle("hidden", n !== name));
   if (name === "overview") loadStats();
   if (name === "dm" && dmList.length === 0) loadDm();
+  if (name === "tpl") loadTemplate();
 }
 
 // ── Data loading ──────────────────────────────────────
@@ -226,11 +259,11 @@ function handle401() {
   showLMsg("登录已过期，请重新输入密码", false);
 }
 
-async function post(path, body) {
+async function post(path, body, method) {
   const resp = await fetch(`${WORKER}${path}`, {
-    method: "POST",
+    method: method || "POST",
     headers: {"Content-Type":"application/json", "Authorization": `Bearer ${token}`},
-    body: body ? JSON.stringify(body) : undefined,
+    body: body && method !== "GET" ? JSON.stringify(body) : undefined,
   });
   if (resp.status === 401) { handle401(); return {ok:false}; }
   return resp.json();
@@ -329,6 +362,93 @@ document.getElementById("sendDmBtn").addEventListener("click", async () => {
   } catch { showSend("❌ 网络错误", false); }
   document.getElementById("sendDmBtn").disabled = false;
 });
+
+// ── Template ───────────────────────────────────────────
+const DEFAULT_TPL = {
+  header: "📅 检测时间（北京时间）：{{time}}\n\n🟢 **新放出名额！**\n",
+  item: "  • {{date}}  {{office_name}}({{office}})  {{qtype_name}} → {{status_name}}",
+  footer: "\n——————————————————————————————\n📊 实时看板：{{dashboard_url}}\n📋 预约办理：{{booking_url}}\n🪧 配额查询：{{quota_url}}\n📖 加群方式：{{group_url}}\n\n⚠️ 本系统为第三方开源工具，非香港入境事务处官方服务。请以官网信息为准。\n   仅供学习交流，请勿用于商业盈利目的。",
+  links: {
+    dashboard_url: "https://Zheyi-D.github.io/quota-monitor",
+    booking_url: "https://www.gov.hk/sc/apps/immdicbooking2.htm",
+    quota_url: "https://eservices.es2.immd.gov.hk/es/quota-enquiry-client/?l=zh-CN&appId=579",
+    group_url: "https://scn7uo58gnuo.feishu.cn/wiki/QSFlwcMBmil7sGkZRBTcAWqwnCf",
+  }
+};
+
+async function loadTemplate() {
+  const data = await post("/api/admin/template", null, "GET");
+  const tpl = (data.ok && data.template) ? data.template : DEFAULT_TPL;
+  document.getElementById("tplHeader").value = tpl.header || "";
+  document.getElementById("tplItem").value = tpl.item || "";
+  document.getElementById("tplFooter").value = tpl.footer || "";
+  const links = tpl.links || DEFAULT_TPL.links;
+  const linksDiv = document.getElementById("tplLinks");
+  const defaults = DEFAULT_TPL.links;
+  linksDiv.innerHTML = Object.keys(defaults).map(k =>
+    `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <code style="width:120px;font-size:0.78rem;text-align:right" v-pre>{{${k}}}</code>
+      <input class="tpl-link" data-key="${k}" value="${esc((links[k]||defaults[k]||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;'))}" style="flex:1;margin:0" placeholder="${defaults[k]}">
+    </div>`
+  ).join("");
+  renderPreview();
+}
+
+function getCurrentTpl() {
+  const links = {};
+  document.querySelectorAll(".tpl-link").forEach(el => { links[el.dataset.key] = el.value; });
+  return {
+    header: document.getElementById("tplHeader").value,
+    item: document.getElementById("tplItem").value,
+    footer: document.getElementById("tplFooter").value,
+    links,
+  };
+}
+
+function renderPreview() {
+  const tpl = getCurrentTpl();
+  const links = tpl.links || {};
+  const repl = (s) => {
+    return s
+      .replace(/\{\{time\}\}/g, "2026-08-02 14:18:32")
+      .replace(/\{\{date\}\}/g, "09/09/2026")
+      .replace(/\{\{office_name\}\}/g, "港岛办事处")
+      .replace(/\{\{office\}\}/g, "RHK")
+      .replace(/\{\{qtype_name\}\}/g, "一般服务时段")
+      .replace(/\{\{status_name\}\}/g, "少量 🟡")
+      .replace(/\{\{(\w+)\}\}/g, (_, k) => links[k] || `{{${k}}}`);
+  };
+  const preview = repl(tpl.header) + repl(tpl.item) + repl(tpl.footer);
+  document.getElementById("tplPreview").textContent = preview;
+}
+
+document.getElementById("saveTplBtn").addEventListener("click", async () => {
+  const tpl = getCurrentTpl();
+  const data = await post("/api/admin/template", { template: tpl });
+  showTplMsg(data.ok ? "✅ 已保存" : "❌ " + (data.msg||"失败"), data.ok);
+});
+
+document.getElementById("resetTplBtn").addEventListener("click", () => {
+  if (!confirm("恢复默认模板？当前修改将丢失。")) return;
+  document.getElementById("tplHeader").value = DEFAULT_TPL.header;
+  document.getElementById("tplItem").value = DEFAULT_TPL.item;
+  document.getElementById("tplFooter").value = DEFAULT_TPL.footer;
+  document.querySelectorAll(".tpl-link").forEach(el => { el.value = DEFAULT_TPL.links[el.dataset.key] || ""; });
+  renderPreview();
+  showTplMsg("已恢复默认（需点保存）", true);
+});
+
+function showTplMsg(t, ok) {
+  const el = document.getElementById("tplMsg");
+  el.textContent = t; el.className = "msg " + (ok ? "ok" : "err"); el.classList.remove("hidden");
+  setTimeout(() => el.classList.add("hidden"), 4000);
+}
+
+// Auto-preview on input
+document.getElementById("tplHeader").addEventListener("input", renderPreview);
+document.getElementById("tplItem").addEventListener("input", renderPreview);
+document.getElementById("tplFooter").addEventListener("input", renderPreview);
+document.addEventListener("input", e => { if (e.target.classList.contains("tpl-link")) renderPreview(); });
 
 // ── Init ──────────────────────────────────────────────
 function showMain() {
