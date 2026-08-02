@@ -105,7 +105,7 @@ input[type="password"] { width: 100%; margin-bottom: 12px; }
       <div class="kpi-row" id="kpiRow">
         <div class="kpi"><div class="kv" id="kpiDmActive">-</div><div class="kl">DM 活跃订阅</div></div>
         <div class="kpi"><div class="kv" id="kpiDmAll">-</div><div class="kl">全部日期 / 特定日期</div></div>
-        <div class="kpi"><div class="kv" id="kpiDmDaily">-</div><div class="kl">今日 DM 新增 / 退订</div></div>
+        <div class="kpi"><div class="kv" id="kpiDmDaily">-</div><div class="kl">今日 DM 新增（新人）/ 退订（主动）</div></div>
         <div class="kpi"><div class="kv" id="kpiDmEver">-</div><div class="kl">历史累计 DM</div></div>
       </div>
     </div>
@@ -274,7 +274,7 @@ async function loadStats() {
   if (!data.ok) return;
   document.getElementById("kpiDmActive").textContent = data.dm_active;
   document.getElementById("kpiDmAll").textContent = data.dm_all + " / " + data.dm_pick;
-  document.getElementById("kpiDmDaily").textContent = "+" + data.dm_daily_new + " / -" + data.dm_daily_unsub;
+  document.getElementById("kpiDmDaily").textContent = "+" + data.dm_daily_new + "（新人）/ -" + data.dm_daily_unsub + "（主动退订）";
   document.getElementById("kpiDmEver").textContent = data.dm_ever;
 }
 

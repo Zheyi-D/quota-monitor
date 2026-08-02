@@ -299,7 +299,7 @@ export default {
         const dmAll = dmList.filter(s => !s.dates || s.dates.length === 0).length;
         const dmPick = dmList.filter(s => s.dates && s.dates.length > 0).length;
 
-	        // Daily stats from log (non-fatal: file may not exist yet)
+	        // Stats from event log (non-fatal: file may not exist yet)
 	        let dailyNew = 0, dailyUnsub = 0;
 	        const everIds = new Set(dmList.map(s => s.open_id));
 	        try {
@@ -307,9 +307,18 @@ export default {
 	          const logList = Array.isArray(log) ? log : [];
 	          // BJT today: UTC+8
 	          const bjt = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
-	          dailyNew = logList.filter(e => e.action === "subscribe" && e.time.slice(0,10) === bjt).length;
-	          dailyUnsub = logList.filter(e => e.action === "unsubscribe" && e.time.slice(0,10) === bjt).length;
+	          // All open_ids that have ever appeared in the log
 	          logList.forEach(e => everIds.add(e.open_id));
+	          // Daily NEW: first-time subscribers today (never appeared before today)
+	          const beforeIds = new Set(
+	            logList.filter(e => e.time.slice(0,10) < bjt).map(e => e.open_id)
+	          );
+	          const todaySubs = logList.filter(e => e.action === "subscribe" && e.time.slice(0,10) === bjt);
+	          dailyNew = new Set(todaySubs.map(e => e.open_id).filter(id => !beforeIds.has(id))).size;
+	          // Daily UNSUB: unique open_ids unsubscribed today
+	          dailyUnsub = new Set(
+	            logList.filter(e => e.action === "unsubscribe" && e.time.slice(0,10) === bjt).map(e => e.open_id)
+	          ).size;
 	        } catch (_) { /* log file read failed, use dmActive as fallback */ }
 	        const everSubscribed = everIds.size;
 
