@@ -466,7 +466,7 @@ async function handleAction(openId, actionValue) {
 
     case "sub_pick":
       clearUserState(openId);
-      return await sendDM(openId, buildSubPickCard());
+      return await sendDM(openId, buildWelcomeCard());
 
     case "sub_pick_date":
       state.mode = "date";
