@@ -298,7 +298,7 @@ function buildConfirmCard(dates, offices, mode) {
   };
 }
 
-function buildStatusCard(entry) {
+function buildStatusCard(entry, openId) {
   // Determine mode
   const hasDates = entry && entry.dates && entry.dates.length > 0;
   const hasOffices = entry && entry.offices && entry.offices.length > 0;
@@ -307,7 +307,7 @@ function buildStatusCard(entry) {
     return {
       header: { title: { content: "📊 我的订阅", tag: "plain_text" }, template: "blue" },
       elements: [
-        { tag: "markdown", content: "当前订阅：**全部**\n\n所有日期、所有办事处放号都会通知你。" },
+        { tag: "markdown", content: `当前订阅：**全部**\n\n所有日期、所有办事处放号都会通知你。\n\n<font color='grey' size='1'>ID: ${openId||""}</font>` },
         { tag: "action", actions: [
           { tag: "button", text: { tag: "plain_text", content: "🔥 修改订阅" }, type: "default", value: "sub_pick" },
           { tag: "button", text: { tag: "plain_text", content: "❌ 取消订阅" }, type: "danger", value: "unsub" },
@@ -319,7 +319,7 @@ function buildStatusCard(entry) {
     return {
       header: { title: { content: "📊 我的订阅", tag: "plain_text" }, template: "blue" },
       elements: [
-        { tag: "markdown", content: "你还没有订阅通知。\n\n订阅后，当关注的日期/办事处放号时会私聊通知你。" },
+        { tag: "markdown", content: `你还没有订阅通知。\n\n订阅后，当关注的日期/办事处放号时会私聊通知你。\n\n<font color='grey' size='1'>ID: ${openId||""}</font>` },
         { tag: "action", actions: [
           { tag: "button", text: { tag: "plain_text", content: "📅 按日期订阅" }, type: "primary", value: "sub_pick_date" },
           { tag: "button", text: { tag: "plain_text", content: "🏢 按办事处订阅" }, type: "default", value: "sub_pick_office" },
@@ -343,7 +343,7 @@ function buildStatusCard(entry) {
   } else {
     parts.push("🏢 所有办事处");
   }
-  const markdown = parts.join("\n\n") + `\n\n订阅时间：${entry.subscribed_at ? entry.subscribed_at.slice(0, 10) : "未知"}`;
+  const markdown = parts.join("\n\n") + `\n\n订阅时间：${entry.subscribed_at ? entry.subscribed_at.slice(0, 10) : "未知"}\n\n<font color='grey' size='1'>ID: ${openId||""}</font>`;
 
   return {
     header: { title: { content: "📊 我的订阅", tag: "plain_text" }, template: "blue" },
@@ -570,9 +570,9 @@ async function doStatus(openId) {
     const entry = resp.subscribed
       ? { dates: resp.dates || [], offices: resp.offices || [], subscribed_at: resp.subscribed_at || "" }
       : null;
-    return await sendDM(openId, buildStatusCard(entry));
+    return await sendDM(openId, buildStatusCard(entry, openId));
   } else {
-    return await sendDM(openId, buildStatusCard(null));
+    return await sendDM(openId, buildStatusCard(null, openId));
   }
 }
 
@@ -612,7 +612,7 @@ const dispatcher = new EventDispatcher({}).register({
 
       await handleText(openId, msgText);
     } catch (e) {
-      console.error("handle text error:", e.message);
+      console.error(`handle text error: openId=${openId.slice(0,20)}, msg=${e.message}, resp=${JSON.stringify(e.response?.data || "").slice(0,300)}`);
     }
   },
 
@@ -632,7 +632,7 @@ const dispatcher = new EventDispatcher({}).register({
       await handleAction(openId, actionValue);
       return { toast: { type: "success", content: "ok" } };
     } catch (e) {
-      console.error("card action error:", e.message);
+      console.error(`card action error: openId=${openId.slice(0,20)}, action=${actionValue}, msg=${e.message}, resp=${JSON.stringify(e.response?.data || "").slice(0,300)}`);
       return { toast: { type: "error", content: e.message } };
     }
   },
