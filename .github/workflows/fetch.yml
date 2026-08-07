@@ -47,22 +47,22 @@ jobs:
             echo "No changes to commit"
           fi
 
-#      - name: Setup Pages
-#        uses: actions/configure-pages@v4
-#
-#      - name: Prepare Pages site
-#        run: |
-#          mkdir -p _site/data
-#          cp -r web/* _site/
-#          cp data/quota.json _site/data/
-#          cp data/last_update.json _site/data/
-#          if [ -f data/notify_log.json ]; then cp data/notify_log.json _site/data/; fi
-#          if [ -f data/run.log ]; then cp data/run.log _site/data/; fi
-#
-#      - name: Upload Pages artifact
-#        uses: actions/upload-pages-artifact@v3
-#        with:
-#          path: _site
-#
-#      - name: Deploy to GitHub Pages
-#        uses: actions/deploy-pages@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Prepare Pages site
+        run: |
+          mkdir -p _site/data
+          cp -r web/* _site/
+          cp data/quota.json _site/data/
+          cp data/last_update.json _site/data/
+          if [ -f data/notify_log.json ]; then cp data/notify_log.json _site/data/; fi
+          if [ -f data/run.log ]; then cp data/run.log _site/data/; fi
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
