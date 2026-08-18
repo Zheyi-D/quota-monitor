@@ -33,6 +33,9 @@ jobs:
           FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
           FEISHU_CHAT_ID: ${{ secrets.FEISHU_CHAT_ID }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          HKID_RELEASE_WEBHOOK_URL: ${{ secrets.HKID_RELEASE_WEBHOOK_URL }}
+          HKID_RELEASE_WEBHOOK_SECRET: ${{ secrets.HKID_RELEASE_WEBHOOK_SECRET }}
+          HKID_RELEASE_WEBHOOK_TIMEOUT_SECONDS: "10"
         run: python ci_run.py
 
       - name: Commit updated data

@@ -184,6 +184,7 @@ cron-job.org
 | `state.py` | `load_state()` / `save_state()` | 快照持久化，原子写入防损坏 |
 | `ci_run.py` | `_save_state_remote()` | GitHub API 直写 state.json，避免 push 不可靠 |
 | `ci_run.py` | `_append_run_log()` | GitHub API 追加 CI 日志到 `data/run.log`（上限 10000 行） |
+| `release_sink.py` | `build_release_signal()` / `deliver_outbox()` | 生成签名无 PII 事件，并按 2xx/4xx/5xx 结果管理可恢复 outbox |
 
 ## 通知推送流程
 
@@ -204,6 +205,19 @@ detect_changes() → has_significant_change() → format_changes()
 **设计要点**：
 - 群聊和 DM 各自使用 `ThreadPoolExecutor` 并行，几乎同时抵达
 - 单个群/DM 发送失败不中止其余发送
+- 可选 ReleaseSignal 与飞书发送互不决定成败；它只发送公开 `newly_available` 行
+- ReleaseSignal 接收端必须独立复核官网，不能直接用事件创建预约 Candidate
+
+## ReleaseSignal bridge
+
+启用 `HKID_RELEASE_WEBHOOK_URL` 与 `HKID_RELEASE_WEBHOOK_SECRET` 后，CI 会把每次
+`newly_available` 转换为 `hkid.quota.release.v1`，使用
+`timestamp + "." + exact_json_body` 计算 HMAC-SHA256，并禁止跟随 HTTP redirect。
+事件只含 `date / office_id / quota_type / status`，不含飞书用户、客户资料或预约信息。
+
+`state.json.pending_release_signals` 是跨 CI 运行的非 PII outbox：每次最多执行有限次数
+指数退避；2xx 删除、5xx/网络 timeout 保留、4xx 永久拒绝并写入运行日志。生产地址
+强制 HTTPS，loopback HTTP 只用于本机联调。
 
 ## 飞书 DM 按日期过滤
 

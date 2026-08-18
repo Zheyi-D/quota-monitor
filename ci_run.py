@@ -21,6 +21,7 @@ from quota_monitor.core import (
     has_significant_change,
 )
 from quota_monitor.notify import send_feishu_api, send_feishu_dm, send_feishu_webhook
+from quota_monitor.release_sink import build_release_signal, deliver_outbox
 from quota_monitor.state import load_state
 
 logging.basicConfig(
@@ -230,6 +231,29 @@ def main():
 
     changes = detect_changes(old_snapshot, snapshot)
 
+    # ReleaseSignal carries public quota rows only. It is a wake-up hint; the
+    # receiving project independently rechecks the official source.
+    pending_release_signals = state.get("pending_release_signals", [])
+    if not isinstance(pending_release_signals, list):
+        logger.warning("ReleaseSignal outbox 格式无效，已安全清空")
+        pending_release_signals = []
+    else:
+        pending_release_signals = [
+            item for item in pending_release_signals if isinstance(item, dict)
+        ]
+    release_url = os.environ.get("HKID_RELEASE_WEBHOOK_URL", "").strip()
+    release_secret = os.environ.get("HKID_RELEASE_WEBHOOK_SECRET", "")
+    newly_available = changes.get("newly_available", [])
+    if not is_first_run and newly_available and release_url and release_secret:
+        signal = build_release_signal(newly_available)
+        known_ids = {
+            item.get("event_id")
+            for item in pending_release_signals
+            if isinstance(item, dict)
+        }
+        if signal["event_id"] not in known_ids:
+            pending_release_signals.append(signal)
+
     # ── 4. 发送通知 ──
     notify_result = {"feishu": None, "feishu_dm": 0}
     if is_first_run:
@@ -332,8 +356,38 @@ def main():
             "summary": "无变化"
         })
 
-    # ── 5. 保存状态（通过 GitHub API 直接写入，避免 git push 不可靠导致重复通知）──
-    _save_state_remote("state.json", snapshot)
+    # ── 5. 投递无 PII ReleaseSignal outbox；失败不影响飞书通知或快照更新 ──
+    if pending_release_signals and release_url and release_secret:
+        try:
+            pending_release_signals, rejected_ids = deliver_outbox(
+                pending_release_signals,
+                url=release_url,
+                secret=release_secret,
+                timeout_seconds=float(
+                    os.environ.get("HKID_RELEASE_WEBHOOK_TIMEOUT_SECONDS", "10")
+                ),
+                max_attempts=int(os.environ.get("HKID_RELEASE_WEBHOOK_MAX_ATTEMPTS", "3")),
+                backoff_seconds=float(
+                    os.environ.get("HKID_RELEASE_WEBHOOK_BACKOFF_SECONDS", "1")
+                ),
+            )
+        except ValueError:
+            logger.error("ReleaseSignal 配置无效，事件保留在 outbox")
+        else:
+            if rejected_ids:
+                logger.error("ReleaseSignal 被永久拒绝: %d 个事件", len(rejected_ids))
+                _append_run_log(
+                    "ERROR | ReleaseSignal permanent rejection: " + str(len(rejected_ids))
+                )
+            if pending_release_signals:
+                logger.warning("ReleaseSignal 待重试: %d 个事件", len(pending_release_signals))
+
+    # ── 6. 保存状态（通过 GitHub API 直接写入，outbox 可跨运行恢复）──
+    _save_state_remote(
+        "state.json",
+        snapshot,
+        state_extra={"pending_release_signals": pending_release_signals},
+    )
 
     logger.info("CI Run 完成")
 

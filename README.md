@@ -49,6 +49,24 @@
 
 飞书群和私聊几乎同时到达。
 
+### 🔗 可选：HKID ReleaseSignal bridge
+
+自部署实例可以在检测到 `newly_available` 后，向 `hkid-appointment-monitor`
+发送经过 HMAC-SHA256 签名的无 PII `ReleaseSignal`。该事件只负责唤醒接收端；
+接收端仍会独立读取官网并执行自己的日期、客户和预约规则，不能把飞书消息或本仓库
+的 `state.json` 当成预约证据。
+
+GitHub Actions Secrets：
+
+```text
+HKID_RELEASE_WEBHOOK_URL=https://<host>/internal/reschedule/release-signals/quota-monitor
+HKID_RELEASE_WEBHOOK_SECRET=<与接收端相同的 32+ bytes 随机密钥>
+```
+
+未成功投递的事件会保存在 `state.json` 的 `pending_release_signals`（只含公开配额行）
+并在后续运行重试。2xx 才删除，5xx/timeout 保留，4xx 记录为永久拒绝。生产 URL
+必须为 HTTPS；明文 HTTP 只允许 loopback 开发地址。
+
 ---
 
 ## 🔒 隐私与安全
@@ -56,6 +74,7 @@
 - 飞书用户数据使用 **AES-256-GCM 加密存储**，仓库中不可读
 - 仅读取入境处**公开发布**的配额数据
 - ⚠️ 免责声明：本系统为第三方开源工具，非香港入境事务处官方服务，请以官网信息为准
+- ReleaseSignal 不含客户资料、证件、查询码、验证码或预约 Session
 
 ---
 
