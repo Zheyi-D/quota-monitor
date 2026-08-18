@@ -36,17 +36,36 @@ async function encryptData(key, plaintext) {
   const combined = new Uint8Array(iv.length + ct.byteLength);
   combined.set(iv);
   combined.set(new Uint8Array(ct), iv.length);
-  return { enc: true, data: btoa(String.fromCharCode(...combined)) };
+  return { enc: true, data: btoa(bytesToBinary(combined)) };
 }
 
 async function decryptData(key, data) {
   if (!data || !data.enc) return data;
   const akey = key;
-  const buf = new Uint8Array(atob(data.data).split("").map(c => c.charCodeAt(0)));
+  const buf = bytesFromBase64(data.data);
   const iv = buf.slice(0, 12);
   const ct = buf.slice(12);
   const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, akey, ct);
   return JSON.parse(new TextDecoder().decode(decrypted));
+}
+
+// 分块转换：避免一次性 spread 几万个参数导致 Workers 栈溢出
+function bytesToBinary(bytes) {
+  let binary = "";
+  const CHUNK = 0x8000; // 32KB
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return binary;
+}
+
+function bytesFromBase64(b64) {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
 }
 
 // ── GitHub Helpers ────────────────────────────────────────────────────
