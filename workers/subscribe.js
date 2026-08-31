@@ -14,6 +14,11 @@ const CORS = {
 
 function json(d, s) { return new Response(JSON.stringify(d), {status:s||200, headers:{"Content-Type":"application/json",...CORS}}); }
 function html(body) { return new Response(`<!DOCTYPE html><html lang="zh-HK"><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><body style="font-family:sans-serif;text-align:center;padding:48px 16px">${body}</body></html>`, {headers:{"Content-Type":"text/html; charset=utf-8",...CORS}}); }
+async function limitedJSON(request, max = 65536) {
+  const text = await request.text();
+  if (text.length > max) { const e = new Error("payload too large"); e.status = 413; throw e; }
+  return JSON.parse(text);
+}
 
 async function fetchWithTimeout(url, opts, ms) {
   const ctrl = new AbortController();
@@ -226,7 +231,7 @@ export default {
 
     if (request.method === "POST" && url.pathname === "/api/feishu-subscribe") {
       let body;
-      try { body = await request.json(); } catch { return json({ok:false,msg:"bad json"},400); }
+      try { body = await limitedJSON(request); } catch (e) { return json({ok:false,msg:"bad json"},e.status||400); }
       const openId = (body.open_id || "").trim();
       const dates = Array.isArray(body.dates) ? body.dates : [];
       const offices = Array.isArray(body.offices) ? body.offices : [];
@@ -250,7 +255,7 @@ export default {
 
     if (request.method === "POST" && url.pathname === "/api/feishu-unsubscribe") {
       let body;
-      try { body = await request.json(); } catch { return json({ok:false,msg:"bad json"},400); }
+      try { body = await limitedJSON(request); } catch (e) { return json({ok:false,msg:"bad json"},e.status||400); }
       const openId = (body.open_id || "").trim();
       if (!openId) return json({ok:false,msg:"open_id required"},400);
 
@@ -284,7 +289,7 @@ export default {
 
     if (request.method === "POST" && url.pathname === "/api/admin/login") {
       let body;
-      try { body = await request.json(); } catch { return json({ok:false,msg:"bad json"},400); }
+      try { body = await limitedJSON(request); } catch (e) { return json({ok:false,msg:"bad json"},e.status||400); }
       const pwd = env.ADMIN_PASSWORD;
       if (!pwd) return json({ok:false,msg:"ADMIN_PASSWORD not configured"},500);
       const input = (body.password || "");
@@ -363,7 +368,7 @@ export default {
     // DM mass send
     if (request.method === "POST" && url.pathname === "/api/admin/dm-send") {
       let body;
-      try { body = await request.json(); } catch { return json({ok:false,msg:"bad json"},400); }
+      try { body = await limitedJSON(request); } catch (e) { return json({ok:false,msg:"bad json"},e.status||400); }
       if (!(await authToken(env, request))) return json({ok:false,msg:"unauthorized"},401);
 
       const text = (body.text || "").trim();
@@ -438,7 +443,7 @@ export default {
       if (request.method === "POST") {
         if (!(await authToken(env, request))) return json({ok:false,msg:"unauthorized"},401);
         let body;
-        try { body = await request.json(); } catch { return json({ok:false,msg:"bad json"},400); }
+        try { body = await limitedJSON(request); } catch (e) { return json({ok:false,msg:"bad json"},e.status||400); }
         const tpl = body.template;
         if (!tpl || typeof tpl !== "object") return json({ok:false,msg:"template required"},400);
 
@@ -458,7 +463,7 @@ export default {
       if (!(await authToken(env, request))) return json({ok:false,msg:"unauthorized"},401);
 
       let body;
-      try { body = await request.json(); } catch { return json({ ok: false, msg: "bad json" }, 400); }
+      try { body = await limitedJSON(request); } catch (e) { return json({ ok: false, msg: "bad json" }, e.status||400); }
 
       const text = (body.text || "").trim();
       if (!text || text.length > 4000) return json({ ok: false, msg: "text empty or too long (max 4000)" }, 400);
