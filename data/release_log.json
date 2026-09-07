@@ -59050,6 +59050,18 @@
           "status": "quota-g"
         }
       ]
+    },
+    {
+      "time": "2026-09-07T15:24:06+08:00",
+      "count": 1,
+      "items": [
+        {
+          "date": "11/06/2026",
+          "office": "FTO",
+          "quota_type": "R",
+          "status": "quota-y"
+        }
+      ]
     }
   ],
   "backfill": {
