@@ -63328,6 +63328,24 @@
           "status": "quota-y"
         }
       ]
+    },
+    {
+      "time": "2026-09-07T21:06:45+08:00",
+      "count": 2,
+      "items": [
+        {
+          "date": "10/27/2026",
+          "office": "TMO",
+          "quota_type": "R",
+          "status": "quota-y"
+        },
+        {
+          "date": "10/30/2026",
+          "office": "YLO",
+          "quota_type": "R",
+          "status": "quota-y"
+        }
+      ]
     }
   ],
   "backfill": {
