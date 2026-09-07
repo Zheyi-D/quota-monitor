@@ -62620,6 +62620,18 @@
           "status": "quota-y"
         }
       ]
+    },
+    {
+      "time": "2026-09-07T17:59:20+08:00",
+      "count": 1,
+      "items": [
+        {
+          "date": "10/27/2026",
+          "office": "YLO",
+          "quota_type": "R",
+          "status": "quota-y"
+        }
+      ]
     }
   ],
   "backfill": {
