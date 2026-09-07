@@ -60178,6 +60178,24 @@
           "status": "quota-y"
         }
       ]
+    },
+    {
+      "time": "2026-09-07T15:56:59+08:00",
+      "count": 2,
+      "items": [
+        {
+          "date": "10/07/2026",
+          "office": "RKO",
+          "quota_type": "R",
+          "status": "quota-y"
+        },
+        {
+          "date": "10/12/2026",
+          "office": "FTO",
+          "quota_type": "R",
+          "status": "quota-y"
+        }
+      ]
     }
   ],
   "backfill": {
