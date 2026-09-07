@@ -477,7 +477,7 @@
     "10/27/2026|RKO|K": "no-quotaK",
     "10/27/2026|RTK|R": "quota-r",
     "10/27/2026|RTK|K": "no-quotaK",
-    "10/27/2026|TMO|R": "quota-y",
+    "10/27/2026|TMO|R": "quota-r",
     "10/27/2026|TMO|K": "no-quotaK",
     "10/27/2026|YLO|R": "quota-r",
     "10/27/2026|YLO|K": "no-quotaK",
@@ -535,7 +535,7 @@
     "11/02/2026|RHK|K": "no-quotaK",
     "11/02/2026|RKO|R": "quota-r",
     "11/02/2026|RKO|K": "no-quotaK",
-    "11/02/2026|RTK|R": "quota-y",
+    "11/02/2026|RTK|R": "quota-r",
     "11/02/2026|RTK|K": "no-quotaK",
     "11/02/2026|TMO|R": "quota-y",
     "11/02/2026|TMO|K": "no-quotaK",
@@ -577,7 +577,7 @@
     "11/05/2026|TMO|K": "no-quotaK",
     "11/05/2026|YLO|R": "quota-g",
     "11/05/2026|YLO|K": "no-quotaK",
-    "11/06/2026|FTO|R": "quota-y",
+    "11/06/2026|FTO|R": "quota-r",
     "11/06/2026|FTO|K": "no-quotaK",
     "11/06/2026|RHK|R": "quota-g",
     "11/06/2026|RHK|K": "no-quotaK",
@@ -1145,7 +1145,7 @@
     "01/04/2027|FTO|K": "no-quotaK",
     "01/04/2027|RHK|R": "quota-g",
     "01/04/2027|RHK|K": "no-quotaK",
-    "01/04/2027|RKO|R": "quota-r",
+    "01/04/2027|RKO|R": "quota-g",
     "01/04/2027|RKO|K": "no-quotaK",
     "01/04/2027|RTK|R": "quota-g",
     "01/04/2027|RTK|K": "no-quotaK",
@@ -1154,7 +1154,7 @@
     "01/04/2027|YLO|R": "quota-g",
     "01/04/2027|YLO|K": "no-quotaK"
   },
-  "last_snapshot_time": "2026-09-07T15:24:35",
+  "last_snapshot_time": "2026-09-07T15:25:11",
   "pending_release_signals": [],
   "notification_episodes": {
     "12/17/2026|RKO|R": {
@@ -1329,20 +1329,20 @@
       "notified_at": 1788763228.9494686,
       "unavailable_since": null
     },
-    "01/04/2027|RKO|R": {
-      "notified_at": 1788765726.2112482,
-      "unavailable_since": 1788765873.1266985
-    },
     "11/06/2026|FTO|R": {
       "notified_at": 1788765846.250833,
-      "unavailable_since": null
+      "unavailable_since": 1788765908.2748413
     },
     "10/27/2026|TMO|R": {
       "notified_at": 1788765873.1266985,
-      "unavailable_since": null
+      "unavailable_since": 1788765908.2748413
     },
     "11/02/2026|RTK|R": {
       "notified_at": 1788765873.1266985,
+      "unavailable_since": 1788765908.2748413
+    },
+    "01/04/2027|RKO|R": {
+      "notified_at": 1788765908.2748413,
       "unavailable_since": null
     }
   }
