@@ -59026,6 +59026,30 @@
           "status": "quota-y"
         }
       ]
+    },
+    {
+      "time": "2026-09-07T15:20:27+08:00",
+      "count": 1,
+      "items": [
+        {
+          "date": "11/03/2026",
+          "office": "FTO",
+          "quota_type": "R",
+          "status": "quota-y"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-07T15:22:06+08:00",
+      "count": 1,
+      "items": [
+        {
+          "date": "01/04/2027",
+          "office": "RKO",
+          "quota_type": "R",
+          "status": "quota-g"
+        }
+      ]
     }
   ],
   "backfill": {
