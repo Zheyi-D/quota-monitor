@@ -471,11 +471,11 @@
     "10/26/2026|YLO|K": "no-quotaK",
     "10/27/2026|FTO|R": "quota-r",
     "10/27/2026|FTO|K": "no-quotaK",
-    "10/27/2026|RHK|R": "quota-y",
+    "10/27/2026|RHK|R": "quota-r",
     "10/27/2026|RHK|K": "no-quotaK",
     "10/27/2026|RKO|R": "quota-r",
     "10/27/2026|RKO|K": "no-quotaK",
-    "10/27/2026|RTK|R": "quota-y",
+    "10/27/2026|RTK|R": "quota-r",
     "10/27/2026|RTK|K": "no-quotaK",
     "10/27/2026|TMO|R": "quota-r",
     "10/27/2026|TMO|K": "no-quotaK",
@@ -533,7 +533,7 @@
     "11/02/2026|FTO|K": "no-quotaK",
     "11/02/2026|RHK|R": "quota-y",
     "11/02/2026|RHK|K": "no-quotaK",
-    "11/02/2026|RKO|R": "quota-y",
+    "11/02/2026|RKO|R": "quota-r",
     "11/02/2026|RKO|K": "no-quotaK",
     "11/02/2026|RTK|R": "quota-y",
     "11/02/2026|RTK|K": "no-quotaK",
@@ -545,7 +545,7 @@
     "11/03/2026|FTO|K": "no-quotaK",
     "11/03/2026|RHK|R": "quota-y",
     "11/03/2026|RHK|K": "no-quotaK",
-    "11/03/2026|RKO|R": "quota-y",
+    "11/03/2026|RKO|R": "quota-r",
     "11/03/2026|RKO|K": "no-quotaK",
     "11/03/2026|RTK|R": "quota-y",
     "11/03/2026|RTK|K": "no-quotaK",
@@ -1154,7 +1154,7 @@
     "01/04/2027|YLO|R": "quota-g",
     "01/04/2027|YLO|K": "no-quotaK"
   },
-  "last_snapshot_time": "2026-09-07T17:37:40",
+  "last_snapshot_time": "2026-09-07T17:38:12",
   "pending_release_signals": [],
   "notification_episodes": {
     "12/17/2026|RKO|R": {
@@ -1399,19 +1399,19 @@
     },
     "10/27/2026|RHK|R": {
       "notified_at": 1788773760.6973324,
-      "unavailable_since": null
+      "unavailable_since": 1788773892.5578027
     },
     "10/27/2026|RTK|R": {
       "notified_at": 1788773760.6973324,
-      "unavailable_since": null
+      "unavailable_since": 1788773892.5578027
     },
     "11/02/2026|RKO|R": {
       "notified_at": 1788773760.6973324,
-      "unavailable_since": null
+      "unavailable_since": 1788773892.5578027
     },
     "11/03/2026|RKO|R": {
       "notified_at": 1788773760.6973324,
-      "unavailable_since": null
+      "unavailable_since": 1788773892.5578027
     }
   }
 }
