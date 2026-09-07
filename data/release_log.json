@@ -63436,6 +63436,18 @@
           "status": "quota-y"
         }
       ]
+    },
+    {
+      "time": "2026-09-07T23:35:08+08:00",
+      "count": 1,
+      "items": [
+        {
+          "date": "11/03/2026",
+          "office": "RTK",
+          "quota_type": "R",
+          "status": "quota-y"
+        }
+      ]
     }
   ],
   "backfill": {
