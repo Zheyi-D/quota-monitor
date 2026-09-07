@@ -225,6 +225,7 @@ export default {
     // Called by feishu-ws-client.js (GitHub Actions 长连接)
 
     if (request.method === "POST" && url.pathname === "/api/feishu-subscribe") {
+      if (!(await authToken(env, request))) return json({ok:false,msg:"unauthorized"},401);
       let body;
       try { body = await request.json(); } catch { return json({ok:false,msg:"bad json"},400); }
       const openId = (body.open_id || "").trim();
@@ -249,6 +250,7 @@ export default {
     }
 
     if (request.method === "POST" && url.pathname === "/api/feishu-unsubscribe") {
+      if (!(await authToken(env, request))) return json({ok:false,msg:"unauthorized"},401);
       let body;
       try { body = await request.json(); } catch { return json({ok:false,msg:"bad json"},400); }
       const openId = (body.open_id || "").trim();
@@ -268,6 +270,7 @@ export default {
     }
 
     if (request.method === "GET" && url.pathname === "/api/feishu-status") {
+      if (!(await authToken(env, request))) return json({ok:false,msg:"unauthorized"},401);
       const openId = url.searchParams.get("open_id");
       if (!openId) return json({ok:false,msg:"open_id required"},400);
       try {
