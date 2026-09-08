@@ -1154,7 +1154,7 @@
     "01/05/2027|YLO|R": "quota-g",
     "01/05/2027|YLO|K": "no-quotaK"
   },
-  "last_snapshot_time": "2026-09-08T15:54:13",
+  "last_snapshot_time": "2026-09-08T15:54:42",
   "pending_release_signals": [],
   "notification_episodes": {
     "12/17/2026|RKO|R": {
@@ -1600,10 +1600,6 @@
     "09/11/2026|YLO|R": {
       "notified_at": 1788853765.1842668,
       "unavailable_since": null
-    },
-    "10/13/2026|RTK|R": {
-      "notified_at": 1788853894.8361673,
-      "unavailable_since": 1788854051.8888986
     }
   }
 }
