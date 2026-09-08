@@ -68422,6 +68422,42 @@
           "status": "quota-y"
         }
       ]
+    },
+    {
+      "time": "2026-09-08T15:10:33+08:00",
+      "count": 2,
+      "items": [
+        {
+          "date": "09/24/2026",
+          "office": "RHK",
+          "quota_type": "R",
+          "status": "quota-y"
+        },
+        {
+          "date": "09/25/2026",
+          "office": "RHK",
+          "quota_type": "R",
+          "status": "quota-y"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-08T15:11:08+08:00",
+      "count": 2,
+      "items": [
+        {
+          "date": "09/21/2026",
+          "office": "YLO",
+          "quota_type": "R",
+          "status": "quota-y"
+        },
+        {
+          "date": "09/24/2026",
+          "office": "RKO",
+          "quota_type": "R",
+          "status": "quota-y"
+        }
+      ]
     }
   ],
   "backfill": {
