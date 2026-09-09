@@ -341,9 +341,9 @@
     "10/15/2026|FTO|K": "no-quotaK",
     "10/15/2026|RHK|R": "quota-r",
     "10/15/2026|RHK|K": "no-quotaK",
-    "10/15/2026|RKO|R": "quota-y",
+    "10/15/2026|RKO|R": "quota-r",
     "10/15/2026|RKO|K": "no-quotaK",
-    "10/15/2026|RTK|R": "quota-y",
+    "10/15/2026|RTK|R": "quota-r",
     "10/15/2026|RTK|K": "no-quotaK",
     "10/15/2026|TMO|R": "quota-r",
     "10/15/2026|TMO|K": "no-quotaK",
@@ -1154,7 +1154,7 @@
     "01/06/2027|YLO|R": "quota-g",
     "01/06/2027|YLO|K": "no-quotaK"
   },
-  "last_snapshot_time": "2026-09-09T16:52:39",
+  "last_snapshot_time": "2026-09-09T16:53:10",
   "pending_release_signals": [],
   "notification_episodes": {
     "12/17/2026|RKO|R": {
@@ -1289,33 +1289,17 @@
       "notified_at": 1788930214.6325796,
       "unavailable_since": null
     },
-    "10/14/2026|RHK|R": {
-      "notified_at": 1788943025.2445514,
-      "unavailable_since": 1788943957.5427847
-    },
-    "10/15/2026|RHK|R": {
-      "notified_at": 1788943025.2445514,
-      "unavailable_since": 1788943957.5427847
-    },
     "10/15/2026|RKO|R": {
       "notified_at": 1788943025.2445514,
-      "unavailable_since": null
+      "unavailable_since": 1788943990.4452956
     },
     "10/15/2026|RTK|R": {
       "notified_at": 1788943025.2445514,
-      "unavailable_since": null
+      "unavailable_since": 1788943990.4452956
     },
     "10/20/2026|RHK|R": {
       "notified_at": 1788943025.2445514,
       "unavailable_since": null
-    },
-    "10/20/2026|RTK|R": {
-      "notified_at": 1788943025.2445514,
-      "unavailable_since": 1788943957.5427847
-    },
-    "10/20/2026|YLO|R": {
-      "notified_at": 1788943025.2445514,
-      "unavailable_since": 1788943957.5427847
     },
     "10/21/2026|RHK|R": {
       "notified_at": 1788943025.2445514,
@@ -1332,10 +1316,6 @@
     "10/23/2026|RKO|R": {
       "notified_at": 1788943025.2445514,
       "unavailable_since": null
-    },
-    "10/24/2026|RKO|R": {
-      "notified_at": 1788943025.2445514,
-      "unavailable_since": 1788943957.5427847
     },
     "10/26/2026|RTK|R": {
       "notified_at": 1788943025.2445514,
