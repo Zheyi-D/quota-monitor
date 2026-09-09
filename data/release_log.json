@@ -79528,6 +79528,18 @@
           "status": "quota-y"
         }
       ]
+    },
+    {
+      "time": "2026-09-09T19:01:59+08:00",
+      "count": 1,
+      "items": [
+        {
+          "date": "11/28/2026",
+          "office": "RHK",
+          "quota_type": "R",
+          "status": "quota-y"
+        }
+      ]
     }
   ],
   "backfill": {
