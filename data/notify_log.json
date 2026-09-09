@@ -1,14 +1,5 @@
 [
   {
-    "time": "2026-09-09T09:37:16.385413",
-    "event": "quota_change",
-    "changes": 1,
-    "feishu": "skipped",
-    "feishu_dm": 0,
-    "wecom": "skipped",
-    "summary": "两周内配额变化: 1 个日期"
-  },
-  {
     "time": "2026-09-09T09:38:22.063809",
     "event": "no_change",
     "summary": "无变化"
@@ -2528,6 +2519,11 @@
   },
   {
     "time": "2026-09-09T19:06:29.287500",
+    "event": "no_change",
+    "summary": "无变化"
+  },
+  {
+    "time": "2026-09-09T19:07:31.147238",
     "event": "no_change",
     "summary": "无变化"
   }
