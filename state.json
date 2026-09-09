@@ -1154,7 +1154,7 @@
     "01/06/2027|YLO|R": "quota-g",
     "01/06/2027|YLO|K": "no-quotaK"
   },
-  "last_snapshot_time": "2026-09-09T21:37:33",
+  "last_snapshot_time": "2026-09-09T21:38:08",
   "pending_release_signals": [],
   "notification_episodes": {
     "12/17/2026|RKO|R": {
@@ -1240,10 +1240,6 @@
     "11/06/2026|TMO|R": {
       "notified_at": 1788313655.757076,
       "unavailable_since": null
-    },
-    "11/16/2026|RKO|R": {
-      "notified_at": 1788313655.757076,
-      "unavailable_since": 1788961053.6764796
     },
     "10/29/2026|TMO|R": {
       "notified_at": 1788319146.6942894,
