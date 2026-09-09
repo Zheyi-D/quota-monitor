@@ -77632,6 +77632,66 @@
           "status": "quota-y"
         }
       ]
+    },
+    {
+      "time": "2026-09-09T16:50:00+08:00",
+      "count": 9,
+      "items": [
+        {
+          "date": "09/24/2026",
+          "office": "TMO",
+          "quota_type": "R",
+          "status": "quota-y"
+        },
+        {
+          "date": "09/25/2026",
+          "office": "RHK",
+          "quota_type": "R",
+          "status": "quota-y"
+        },
+        {
+          "date": "09/25/2026",
+          "office": "TMO",
+          "quota_type": "R",
+          "status": "quota-y"
+        },
+        {
+          "date": "09/25/2026",
+          "office": "YLO",
+          "quota_type": "R",
+          "status": "quota-y"
+        },
+        {
+          "date": "09/28/2026",
+          "office": "YLO",
+          "quota_type": "R",
+          "status": "quota-y"
+        },
+        {
+          "date": "09/29/2026",
+          "office": "RHK",
+          "quota_type": "R",
+          "status": "quota-y"
+        },
+        {
+          "date": "10/05/2026",
+          "office": "RHK",
+          "quota_type": "R",
+          "status": "quota-y"
+        },
+        {
+          "date": "10/05/2026",
+          "office": "YLO",
+          "quota_type": "R",
+          "status": "quota-y"
+        },
+        {
+          "date": "10/17/2026",
+          "office": "RKO",
+          "quota_type": "R",
+          "status": "quota-y"
+        }
+      ]
     }
   ],
   "backfill": {
