@@ -75928,6 +75928,30 @@
           "status": "quota-y"
         }
       ]
+    },
+    {
+      "time": "2026-09-09T14:11:07+08:00",
+      "count": 3,
+      "items": [
+        {
+          "date": "09/29/2026",
+          "office": "YLO",
+          "quota_type": "R",
+          "status": "quota-y"
+        },
+        {
+          "date": "09/30/2026",
+          "office": "RTK",
+          "quota_type": "R",
+          "status": "quota-y"
+        },
+        {
+          "date": "11/13/2026",
+          "office": "RKO",
+          "quota_type": "R",
+          "status": "quota-y"
+        }
+      ]
     }
   ],
   "backfill": {
