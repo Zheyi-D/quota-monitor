@@ -1,18 +1,6 @@
 {
   "version": 1,
   "last_snapshot": {
-    "09/11/2026|FTO|R": "quota-r",
-    "09/11/2026|FTO|K": "no-quotaK",
-    "09/11/2026|RHK|R": "quota-r",
-    "09/11/2026|RHK|K": "no-quotaK",
-    "09/11/2026|RKO|R": "quota-r",
-    "09/11/2026|RKO|K": "no-quotaK",
-    "09/11/2026|RTK|R": "quota-r",
-    "09/11/2026|RTK|K": "no-quotaK",
-    "09/11/2026|TMO|R": "quota-r",
-    "09/11/2026|TMO|K": "no-quotaK",
-    "09/11/2026|YLO|R": "quota-r",
-    "09/11/2026|YLO|K": "no-quotaK",
     "09/12/2026|FTO|R": "quota-r",
     "09/12/2026|FTO|K": "no-quotaK",
     "09/12/2026|RHK|R": "quota-r",
@@ -535,7 +523,7 @@
     "11/05/2026|RHK|K": "no-quotaK",
     "11/05/2026|RKO|R": "quota-r",
     "11/05/2026|RKO|K": "no-quotaK",
-    "11/05/2026|RTK|R": "quota-y",
+    "11/05/2026|RTK|R": "quota-r",
     "11/05/2026|RTK|K": "no-quotaK",
     "11/05/2026|TMO|R": "quota-r",
     "11/05/2026|TMO|K": "no-quotaK",
@@ -1152,9 +1140,21 @@
     "01/07/2027|TMO|R": "quota-g",
     "01/07/2027|TMO|K": "no-quotaK",
     "01/07/2027|YLO|R": "quota-g",
-    "01/07/2027|YLO|K": "no-quotaK"
+    "01/07/2027|YLO|K": "no-quotaK",
+    "01/08/2027|FTO|R": "quota-g",
+    "01/08/2027|FTO|K": "no-quotaK",
+    "01/08/2027|RHK|R": "quota-g",
+    "01/08/2027|RHK|K": "no-quotaK",
+    "01/08/2027|RKO|R": "quota-g",
+    "01/08/2027|RKO|K": "no-quotaK",
+    "01/08/2027|RTK|R": "quota-g",
+    "01/08/2027|RTK|K": "no-quotaK",
+    "01/08/2027|TMO|R": "quota-g",
+    "01/08/2027|TMO|K": "no-quotaK",
+    "01/08/2027|YLO|R": "quota-g",
+    "01/08/2027|YLO|K": "no-quotaK"
   },
-  "last_snapshot_time": "2026-09-11T00:14:42",
+  "last_snapshot_time": "2026-09-11T00:15:17",
   "pending_release_signals": [],
   "notification_episodes": {
     "12/17/2026|RKO|R": {
@@ -1199,7 +1199,7 @@
     },
     "11/05/2026|RTK|R": {
       "notified_at": 1788228070.3781266,
-      "unavailable_since": null
+      "unavailable_since": 1789056915.0624886
     },
     "11/05/2026|YLO|R": {
       "notified_at": 1788228070.3781266,
