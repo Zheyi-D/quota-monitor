@@ -3,11 +3,6 @@
   "monitoring_since": "2026-08-21T10:38:41+08:00",
   "events": [
     {
-      "time": "2026-08-21T12:04:21+08:00",
-      "count": 51,
-      "items": []
-    },
-    {
       "time": "2026-08-21T12:26:17+08:00",
       "count": 2,
       "items": []
@@ -80323,6 +80318,24 @@
     },
     {
       "time": "2026-09-10T09:20:46+08:00",
+      "count": 2,
+      "items": [
+        {
+          "date": "10/06/2026",
+          "office": "YLO",
+          "quota_type": "R",
+          "status": "quota-y"
+        },
+        {
+          "date": "10/07/2026",
+          "office": "RKO",
+          "quota_type": "R",
+          "status": "quota-y"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-10T09:23:16+08:00",
       "count": 2,
       "items": [
         {
