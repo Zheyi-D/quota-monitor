@@ -3,11 +3,6 @@
   "monitoring_since": "2026-08-21T10:38:41+08:00",
   "events": [
     {
-      "time": "2026-08-21T20:48:30+08:00",
-      "count": 1,
-      "items": []
-    },
-    {
       "time": "2026-08-21T20:49:58+08:00",
       "count": 1,
       "items": []
@@ -80452,6 +80447,18 @@
           "office": "RHK",
           "quota_type": "R",
           "status": "quota-y"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-10T10:01:46+08:00",
+      "count": 1,
+      "items": [
+        {
+          "date": "01/07/2027",
+          "office": "RKO",
+          "quota_type": "R",
+          "status": "quota-g"
         }
       ]
     }
