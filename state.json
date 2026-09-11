@@ -493,7 +493,7 @@
     "11/02/2026|TMO|K": "no-quotaK",
     "11/02/2026|YLO|R": "quota-r",
     "11/02/2026|YLO|K": "no-quotaK",
-    "11/03/2026|FTO|R": "quota-y",
+    "11/03/2026|FTO|R": "quota-r",
     "11/03/2026|FTO|K": "no-quotaK",
     "11/03/2026|RHK|R": "quota-r",
     "11/03/2026|RHK|K": "no-quotaK",
@@ -503,7 +503,7 @@
     "11/03/2026|RTK|K": "no-quotaK",
     "11/03/2026|TMO|R": "quota-r",
     "11/03/2026|TMO|K": "no-quotaK",
-    "11/03/2026|YLO|R": "quota-y",
+    "11/03/2026|YLO|R": "quota-r",
     "11/03/2026|YLO|K": "no-quotaK",
     "11/04/2026|FTO|R": "quota-r",
     "11/04/2026|FTO|K": "no-quotaK",
@@ -523,7 +523,7 @@
     "11/05/2026|RHK|K": "no-quotaK",
     "11/05/2026|RKO|R": "quota-r",
     "11/05/2026|RKO|K": "no-quotaK",
-    "11/05/2026|RTK|R": "quota-y",
+    "11/05/2026|RTK|R": "quota-r",
     "11/05/2026|RTK|K": "no-quotaK",
     "11/05/2026|TMO|R": "quota-r",
     "11/05/2026|TMO|K": "no-quotaK",
@@ -975,7 +975,7 @@
     "12/18/2026|YLO|K": "no-quotaK",
     "12/19/2026|FTO|R": "quota-y",
     "12/19/2026|FTO|K": "no-quotaK",
-    "12/19/2026|RHK|R": "quota-y",
+    "12/19/2026|RHK|R": "quota-r",
     "12/19/2026|RHK|K": "no-quotaK",
     "12/19/2026|RKO|R": "quota-r",
     "12/19/2026|RKO|K": "no-quotaK",
@@ -1154,9 +1154,9 @@
     "01/08/2027|YLO|R": "quota-g",
     "01/08/2027|YLO|K": "no-quotaK"
   },
-  "last_snapshot_time": "2026-09-11T14:18:24",
-  "pending_release_signals": [],
+  "last_snapshot_time": "2026-09-11T14:19:09",
   "pending_wecom": [],
+  "pending_release_signals": [],
   "notification_episodes": {
     "12/17/2026|RKO|R": {
       "notified_at": 1787554067.9531999,
@@ -1220,11 +1220,11 @@
     },
     "11/03/2026|FTO|R": {
       "notified_at": 1789103889.1609886,
-      "unavailable_since": null
+      "unavailable_since": 1789107547.4876618
     },
     "11/03/2026|YLO|R": {
       "notified_at": 1789103889.1609886,
-      "unavailable_since": null
+      "unavailable_since": 1789107547.4876618
     },
     "11/04/2026|YLO|R": {
       "notified_at": 1789103889.1609886,
@@ -1232,11 +1232,11 @@
     },
     "11/05/2026|RTK|R": {
       "notified_at": 1789103889.1609886,
-      "unavailable_since": null
+      "unavailable_since": 1789107547.4876618
     },
     "12/19/2026|RHK|R": {
       "notified_at": 1789103889.1609886,
-      "unavailable_since": null
+      "unavailable_since": 1789107547.4876618
     }
   }
 }
