@@ -1,20 +1,5 @@
 [
   {
-    "time": "2026-09-10T21:22:04.946003",
-    "event": "no_change",
-    "summary": "无变化"
-  },
-  {
-    "time": "2026-09-10T21:23:00.291904",
-    "event": "no_change",
-    "summary": "无变化"
-  },
-  {
-    "time": "2026-09-10T21:23:59.653543",
-    "event": "no_change",
-    "summary": "无变化"
-  },
-  {
     "time": "2026-09-10T21:25:04.599317",
     "event": "no_change",
     "summary": "无变化"
@@ -2579,6 +2564,23 @@
   },
   {
     "time": "2026-09-11T12:44:27.180163+08:00",
+    "event": "wecom_delivery",
+    "wecom": "waiting",
+    "pending": 0
+  },
+  {
+    "time": "2026-09-11T12:44:51.491930+08:00",
+    "event": "wecom_delivery",
+    "wecom": "waiting",
+    "pending": 0
+  },
+  {
+    "time": "2026-09-11T04:45:25.946532",
+    "event": "no_change",
+    "summary": "无变化"
+  },
+  {
+    "time": "2026-09-11T12:45:27.268270+08:00",
     "event": "wecom_delivery",
     "wecom": "waiting",
     "pending": 0
