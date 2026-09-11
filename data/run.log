@@ -1,4 +1,3 @@
-[2026-09-04 22:24:02 BJT] OK | 配额状态无变化
 [2026-09-04 22:25:17 BJT] OK | 配额状态无变化
 [2026-09-04 22:26:19 BJT] OK | 配额状态无变化
 [2026-09-04 22:27:15 BJT] OK | 配额状态无变化
@@ -9998,3 +9997,4 @@
 [2026-09-11 16:46:06 BJT] ERROR | ReleaseSignal permanent rejection: 1
 [2026-09-11 16:46:44 BJT] OK | 配额状态无变化
 [2026-09-11 16:47:52 BJT] OK | 配额状态无变化
+[2026-09-11 16:48:26 BJT] ERROR | ReleaseSignal permanent rejection: 1
