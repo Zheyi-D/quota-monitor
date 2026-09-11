@@ -51,6 +51,7 @@ jobs:
           FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
           FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
           FEISHU_CHAT_ID: ${{ secrets.FEISHU_CHAT_ID }}
+          QUOTA_WECOM_SOURCE: ${{ vars.QUOTA_WECOM_SOURCE || 'legacy' }}
           WECOM_WEBHOOK_URL: ${{ secrets.WECOM_WEBHOOK_URL }}
           NOTIFICATIONS_PAUSED: ${{ vars.NOTIFICATIONS_PAUSED || 'false' }}
           WECOM_TEST_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.test_wecom && '1' || '0' }}

@@ -74,6 +74,8 @@ def _apply_notification_pause():
 
 def _wecom_webhook_urls():
     """读取企业微信 Webhook；支持用逗号或换行分隔多个群。"""
+    if os.environ.get("QUOTA_WECOM_SOURCE", "legacy").strip() != "legacy":
+        return []  # Only quota WeCom is disabled; other task responsibilities remain.
     raw = os.environ.get("WECOM_WEBHOOK_URL", "")
     urls = [item.strip() for item in raw.replace("\r", "\n").replace("\n", ",").split(",")]
     return list(dict.fromkeys(item for item in urls if item))
@@ -566,7 +568,10 @@ def _run_poll_cycle(log_no_change=True):
                 logger.warning("ReleaseSignal 待重试: %d 个事件", len(pending_release_signals))
 
     # New detections only: never reconstruct old notifications from the snapshot.
-    pending_wecom = enqueue_wecom(state.get("pending_wecom", []), push_changes,
+    legacy_wecom = os.environ.get("QUOTA_WECOM_SOURCE", "legacy").strip() == "legacy"
+    # A source switch is not a historical backlog replay. Keep discovery/dedup state.
+    prior_wecom = state.get("pending_wecom", []) if legacy_wecom else []
+    pending_wecom = enqueue_wecom(prior_wecom, push_changes,
         now=time.time(), enabled=not is_first_run and bool(_wecom_webhook_urls()))
     def persist_wecom(items):
         return _save_state_remote("state.json", snapshot, state_extra={
