@@ -111,7 +111,7 @@ def send_wecom_webhook(webhook_url, text, title="香港入境处预约配额监�
             return False
         except requests.RequestException as exc:
             logger.error("企业微信 webhook 请求失败 (分段 %d/%d): %s",
-                         index, len(chunks), exc)
+                         index, len(chunks), type(exc).__name__)
             return False
 
         if resp.status_code != 200:

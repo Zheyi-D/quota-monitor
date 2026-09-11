@@ -31,6 +31,7 @@ from quota_monitor.notification_state import filter_repeat_releases
 from quota_monitor.notification_window import filter_notification_window
 from quota_monitor.release_sink import build_release_signal, deliver_outbox
 from quota_monitor.state import load_state
+from quota_monitor.wecom_outbox import enqueue as enqueue_wecom, deliver as deliver_wecom
 
 logging.basicConfig(
     level=logging.INFO,
@@ -251,6 +252,7 @@ def _save_state_remote(state_file, snapshot, state_extra=None):
 
     content = json.dumps(state, ensure_ascii=False, indent=2)
     content_b64 = _b64.b64encode(content.encode()).decode()
+    persisted = False
 
     try:
         repo = os.environ.get("GITHUB_REPOSITORY", "")
@@ -270,6 +272,7 @@ def _save_state_remote(state_file, snapshot, state_extra=None):
             input=json.dumps(body), capture_output=True, text=True, timeout=15,
         )
         if result.returncode == 0:
+            persisted = True
             logger.debug("state.json 已通过 API 写入 GitHub")
         else:
             logger.debug("state.json API 写入失败: %s", result.stderr[:100])
@@ -279,6 +282,7 @@ def _save_state_remote(state_file, snapshot, state_extra=None):
     # 始终写本地文件
     with open(state_file, "w", encoding="utf-8") as f:
         f.write(content)
+    return persisted
 
 
 def _load_json_encrypted(path):
@@ -451,7 +455,7 @@ def _run_poll_cycle(log_no_change=True):
             notify_result["feishu"] = "skipped"
 
         # 企业微信群机器人广播（与飞书配置相互独立）
-        wecom_status, wecom_target_count = _send_wecom_broadcast(message)
+        wecom_status, wecom_target_count = "queued", len(_wecom_webhook_urls())
         notify_result["wecom"] = wecom_status
         logger.info("企业微信群通知: %s (%d群)", wecom_status, wecom_target_count)
 
@@ -561,12 +565,27 @@ def _run_poll_cycle(log_no_change=True):
             if pending_release_signals:
                 logger.warning("ReleaseSignal 待重试: %d 个事件", len(pending_release_signals))
 
+    # New detections only: never reconstruct old notifications from the snapshot.
+    pending_wecom = enqueue_wecom(state.get("pending_wecom", []), push_changes,
+        now=time.time(), enabled=not is_first_run and bool(_wecom_webhook_urls()))
+    def persist_wecom(items):
+        return _save_state_remote("state.json", snapshot, state_extra={
+            "pending_wecom": items, "pending_release_signals": pending_release_signals,
+            "notification_episodes": notification_episodes})
+    pending_wecom, delivery = deliver_wecom(pending_wecom, snapshot, _wecom_webhook_urls(),
+        now=time.time(), format_message=lambda changes: _format_wecom_message(format_changes(changes, DEFAULT_OFFICES)),
+        send=send_wecom_webhook, persist=persist_wecom)
+    logger.info("WECOM_OUTBOX status=%s pending=%d", delivery, len(pending_wecom))
+    _append_notify_log({"time": datetime.now(HONG_KONG_TZ).isoformat(),
+        "event": "wecom_delivery", "wecom": delivery, "pending": len(pending_wecom)})
+
     # ── 6. 保存状态（通过 GitHub API 直接写入，outbox 可跨运行恢复）──
     _save_state_remote(
         "state.json",
         snapshot,
         state_extra={
             "pending_release_signals": pending_release_signals,
+            "pending_wecom": pending_wecom,
             "notification_episodes": notification_episodes,
         },
     )

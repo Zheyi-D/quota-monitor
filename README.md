@@ -127,3 +127,10 @@ MIT © [Deng Zheyi](https://github.com/Zheyi-D)
 Linux 服务器可使用 `quota-monitor-daemon` 直接常驻轮询，无需依赖外部
 定时器唤醒 GitHub Actions。守护进程、影子迁移和 systemd 配置见
 [deploy/systemd/README.md](deploy/systemd/README.md)。
+
+
+### 企业微信配额投递恢复
+
+新发现且符合原两周规则的配额先写入 `state.json` 的 `pending_wecom`，远端持久化成功后才发送。发现去重与送达记录分开；单轮最多投递一个事件，各群分别记录成功结果，失败按30秒起、最多300秒的间隔退避。任务重启后从原队列接续，不从旧快照补造历史消息。
+
+提醒最长保留15分钟；配额已不可用、日期超出原通知窗口或达到时效后终止。网络确认丢失可能重复投递，不保证严格 exactly-once。没有新增监测实例；原消息格式、六办事处、香港当天至当天+14天边界保持。此队列不参与预约提交和预约成功通知。
