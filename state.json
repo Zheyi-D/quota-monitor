@@ -1154,7 +1154,7 @@
     "01/08/2027|YLO|R": "quota-g",
     "01/08/2027|YLO|K": "no-quotaK"
   },
-  "last_snapshot_time": "2026-09-11T16:09:08",
+  "last_snapshot_time": "2026-09-11T16:09:11",
   "pending_wecom": [
     {
       "id": "f51781cabe1c835acd4af004e2cdd9deceb53663beedcf71f0c269fea345f1e1",
@@ -1172,8 +1172,10 @@
       "created_at": 1789114148.7601037,
       "expires_at": 1789115048.7601037,
       "next_attempt_at": 1789114148.7601037,
-      "attempts": 0,
-      "delivered": []
+      "attempts": 1,
+      "delivered": [
+        "56be402766b006188c5a724484af8d67c43e19a81eb514f9a06297cca9c0e247"
+      ]
     }
   ],
   "pending_release_signals": [],
