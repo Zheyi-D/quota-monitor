@@ -1154,23 +1154,9 @@
     "01/08/2027|YLO|R": "quota-g",
     "01/08/2027|YLO|K": "no-quotaK"
   },
-  "last_snapshot_time": "2026-09-11T16:45:38",
-  "pending_release_signals": [
-    {
-      "schema": "hkid.quota.release.v1",
-      "event_id": "e490b0a921cae5c4d4ed1d28a9e2e2288d459de774a1ea10cd0a9bbdd5cfbf37",
-      "observed_at": "2026-09-11T08:45:29.039192Z",
-      "released": [
-        {
-          "date": "2026-10-28",
-          "office_id": "FTO",
-          "quota_type": "R",
-          "status": "quota-y"
-        }
-      ]
-    }
-  ],
+  "last_snapshot_time": "2026-09-11T16:46:10",
   "pending_wecom": [],
+  "pending_release_signals": [],
   "notification_episodes": {
     "12/17/2026|RKO|R": {
       "notified_at": 1787554067.9531999,
