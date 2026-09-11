@@ -3,18 +3,6 @@
   "monitoring_since": "2026-08-21T10:38:41+08:00",
   "events": [
     {
-      "time": "2026-08-25T14:09:28+08:00",
-      "count": 1,
-      "items": [
-        {
-          "date": "10/30/2026",
-          "office": "RKO",
-          "quota_type": "R",
-          "status": "quota-y"
-        }
-      ]
-    },
-    {
       "time": "2026-08-25T14:13:07+08:00",
       "count": 1,
       "items": [
@@ -81610,6 +81598,18 @@
     },
     {
       "time": "2026-09-11T11:54:22+08:00",
+      "count": 1,
+      "items": [
+        {
+          "date": "11/10/2026",
+          "office": "RKO",
+          "quota_type": "R",
+          "status": "quota-y"
+        }
+      ]
+    },
+    {
+      "time": "2026-09-11T11:55:27+08:00",
       "count": 1,
       "items": [
         {
