@@ -951,7 +951,7 @@
     "12/31/2026|YLO|K": "no-quotaK",
     "01/02/2027|FTO|R": "quota-g",
     "01/02/2027|FTO|K": "no-quotaK",
-    "01/02/2027|RHK|R": "quota-y",
+    "01/02/2027|RHK|R": "quota-r",
     "01/02/2027|RHK|K": "no-quotaK",
     "01/02/2027|RKO|R": "quota-y",
     "01/02/2027|RKO|K": "no-quotaK",
@@ -1154,5 +1154,5 @@
     "01/21/2027|YLO|R": "quota-g",
     "01/21/2027|YLO|K": "no-quotaK"
   },
-  "last_snapshot_time": "2026-09-24T21:34:34"
+  "last_snapshot_time": "2026-09-24T21:36:25"
 }
