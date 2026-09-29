@@ -316,6 +316,18 @@ def _date_cmp(d1, d2):
         return 0
 
 
+def sort_quota_dates(dates):
+    """Sort MM/DD/YYYY dates chronologically. Invalid values stay in input order at the end."""
+    def key(date):
+        try:
+            month, day, year = date.split("/")
+            return (0, int(year), int(month), int(day))
+        except (AttributeError, TypeError, ValueError):
+            return (1, 0, 0, 0)
+
+    return sorted(dates, key=key)
+
+
 def export_web_data(snapshot, path="data/quota.json"):
     """将快照导出为 web 看板使用的 JSON 格式。
 
