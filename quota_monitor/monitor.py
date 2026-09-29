@@ -54,6 +54,7 @@ from quota_monitor.core import (
     format_changes,
     has_significant_change,
     load_config,
+    sort_quota_dates,
 )
 from quota_monitor.notify import send_notifications
 from quota_monitor.state import load_state, save_state
@@ -281,7 +282,7 @@ def _print_summary(snapshot, offices):
             available_dates.add(date)
 
     if available_dates:
-        sorted_dates = sorted(available_dates, key=lambda d: tuple(map(int, d.split("/"))))
+        sorted_dates = sort_quota_dates(available_dates)
         safe_print(f"    最早可约日期: {sorted_dates[0]}")
         safe_print(f"    可约日期范围: {sorted_dates[0]} ~ {sorted_dates[-1]}")
     else:
