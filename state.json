@@ -431,7 +431,7 @@
     "11/13/2026|RTK|K": "no-quotaK",
     "11/13/2026|TMO|R": "quota-r",
     "11/13/2026|TMO|K": "no-quotaK",
-    "11/13/2026|YLO|R": "quota-y",
+    "11/13/2026|YLO|R": "quota-r",
     "11/13/2026|YLO|K": "no-quotaK",
     "11/14/2026|FTO|R": "quota-r",
     "11/14/2026|FTO|K": "no-quotaK",
@@ -455,7 +455,7 @@
     "11/16/2026|RTK|K": "no-quotaK",
     "11/16/2026|TMO|R": "quota-r",
     "11/16/2026|TMO|K": "no-quotaK",
-    "11/16/2026|YLO|R": "quota-y",
+    "11/16/2026|YLO|R": "quota-r",
     "11/16/2026|YLO|K": "no-quotaK",
     "11/17/2026|FTO|R": "quota-r",
     "11/17/2026|FTO|K": "no-quotaK",
@@ -901,7 +901,7 @@
     "12/31/2026|TMO|K": "no-quotaK",
     "12/31/2026|YLO|R": "quota-g",
     "12/31/2026|YLO|K": "no-quotaK",
-    "01/02/2027|FTO|R": "quota-y",
+    "01/02/2027|FTO|R": "quota-r",
     "01/02/2027|FTO|K": "no-quotaK",
     "01/02/2027|RHK|R": "quota-r",
     "01/02/2027|RHK|K": "no-quotaK",
@@ -1154,5 +1154,5 @@
     "01/26/2027|YLO|R": "quota-g",
     "01/26/2027|YLO|K": "no-quotaK"
   },
-  "last_snapshot_time": "2026-09-30T16:02:27"
+  "last_snapshot_time": "2026-09-30T16:04:30"
 }
